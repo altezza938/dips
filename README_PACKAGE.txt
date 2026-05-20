@@ -55,6 +55,22 @@ make_figures.py
     Reproduces the two figures above from sample_slope.xyzn using the real
     FAA algorithms in faa_core.py.
 
+hemisphere.xyzn
+    Canonical validation model (a dome of ~12,000 points covering every
+    surface orientation). Running the analysis on it paints a sliding (red)
+    band and a toppling (green) band on opposite sides — matching the GEO
+    TN 4/2024 reference tool's hemisphere example.
+    TIP: turn OFF "Amalgamate into facets" for this model (every point is a
+    distinct orientation), then click Run All.
+
+generate_hemisphere.py
+    Regenerates hemisphere.xyzn. Pure Python, NO libraries required.
+
+NOTE on the web app: use "Fit Plane from Data" (under Set Parameters) to
+estimate the slope dip / dip-direction directly from the loaded geometry,
+and toggle "Amalgamate into facets" to group coplanar points into discrete
+facets (and drop vegetation noise) before the analysis.
+
 ----- Python desktop app (option B) ------------------------------------------
 faa_gui.py
     The desktop application's main window and user interface. This is the

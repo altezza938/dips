@@ -515,6 +515,40 @@ function uniformSubsample(n, k) {
   return idx;
 }
 
+// ── Fit slope plane from data ─────────────────────────────────────────────────
+// Best-fit plane through the loaded points (PCA: smallest-eigenvector normal),
+// converted to slope dip / dip-direction. Populates the parameter inputs.
+function fitPlaneFromData() {
+  if (!dataLoaded || !pointPositions) { setStatus('Load a file first.'); return; }
+  const n    = pointPositions.length / 3;
+  const step = n > 50000 ? Math.floor(n / 50000) : 1;
+
+  let cx=0, cy=0, cz=0, cnt=0;
+  for (let i = 0; i < n; i += step) {
+    cx += pointPositions[i*3]; cy += pointPositions[i*3+1]; cz += pointPositions[i*3+2]; cnt++;
+  }
+  cx/=cnt; cy/=cnt; cz/=cnt;
+
+  let m00=0,m01=0,m02=0,m11=0,m12=0,m22=0;
+  for (let i = 0; i < n; i += step) {
+    const dx=pointPositions[i*3]-cx, dy=pointPositions[i*3+1]-cy, dz=pointPositions[i*3+2]-cz;
+    m00+=dx*dx; m01+=dx*dy; m02+=dx*dz; m11+=dy*dy; m12+=dy*dz; m22+=dz*dz;
+  }
+
+  let [nx, ny, nz] = LASLoader.smallestEigenvec(m00, m01, m02, m11, m12, m22);
+  if (nz < 0) { nx=-nx; ny=-ny; nz=-nz; }              // upward normal
+  const len = Math.hypot(nx, ny, nz) || 1; nx/=len; ny/=len; nz/=len;
+
+  const dip    = Math.acos(Math.max(-1, Math.min(1, nz))) * 180 / Math.PI;
+  let   dipDir = Math.atan2(nx, ny) * 180 / Math.PI;    // x=East, y=North
+  if (dipDir < 0) dipDir += 360;
+
+  document.getElementById('slope_dip').value     = dip.toFixed(1);
+  document.getElementById('slope_dip_dir').value = dipDir.toFixed(1);
+  updateStereonet(currentSlidingMask, currentTopplingMask);
+  setStatus(`Fit plane: dip ${dip.toFixed(1)}°, dip direction ${dipDir.toFixed(1)}°.`);
+}
+
 // ── Analysis ──────────────────────────────────────────────────────────────────
 function getParams() {
   return {
@@ -784,6 +818,7 @@ function bindUI() {
   document.getElementById('chk_toppling').addEventListener('change', e => toggleCloud(toppingCloud,  e.target.checked));
   document.getElementById('chk_wedge')   .addEventListener('change', e => toggleCloud(wedgeCloud,    e.target.checked));
 
+  document.getElementById('btnFitPlane')?.addEventListener('click', fitPlaneFromData);
   document.getElementById('btnExportSample').addEventListener('click', exportResultsCSV);
 }
 
