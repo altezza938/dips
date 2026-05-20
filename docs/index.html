@@ -201,67 +201,62 @@
     </div>
 
     <!-- About -->
-    <div class="tab-panel" id="about"
-         style="overflow-y:auto;padding:30px 40px;max-width:780px;">
-      <h1 style="font-size:1.4rem;margin-bottom:8px;">
-        Extended Facet Amalgamation Approach (FAA)
-      </h1>
-      <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;">
-        Digital Mapping and Kinematic Analysis of Rock Slopes<br/>
-        GEO Technical Note TN 4/2024 · K.K. Chan · Planning and Development Division
-      </p>
+    <div class="tab-panel" id="about">
+      <div class="about-content">
 
-      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">What is FAA?</h2>
-      <p style="font-size:.85rem;line-height:1.7;color:var(--muted);">
-        The Facet Amalgamation Approach is a novel technique for extracting major joint sets
-        from the point cloud of a scanned rock slope. Unlike existing methods that require
-        extensive parameter tuning, FAA performs <strong>kinematic analysis directly on each
-        point or triangle</strong> without first delineating individual discontinuity planes.
-        Results are mapped back to the 3-D model so that potentially unstable zones are
-        immediately visible.
-      </p>
+        <h1>Extended Facet Amalgamation Approach (FAA)</h1>
+        <p class="subtitle">
+          Digital Mapping and Kinematic Analysis of Rock Slopes<br/>
+          GEO Technical Note TN 4/2024 · K.K. Chan · Planning and Development Division
+        </p>
 
-      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Failure Modes</h2>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
-        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
-          <div style="color:#ff3333;font-weight:700;margin-bottom:6px;">Planar Sliding</div>
-          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
-            Discontinuity daylights on slope face; dip exceeds friction angle;
-            dip direction within lateral limits.
-          </p>
+        <h2>What is FAA?</h2>
+        <p>
+          The Facet Amalgamation Approach is a novel technique for extracting major joint sets
+          from the point cloud of a scanned rock slope. Unlike existing methods that require
+          extensive parameter tuning, FAA performs <strong>kinematic analysis directly on each
+          point or triangle</strong> without first delineating individual discontinuity planes.
+          Results are mapped back to the 3-D model so that potentially unstable zones are
+          immediately visible.
+        </p>
+
+        <h2>Failure Modes</h2>
+        <div class="failure-cards">
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#ff3333;">Planar Sliding</div>
+            <p>Discontinuity daylights on slope face; dip exceeds friction angle;
+               dip direction within lateral limits.</p>
+          </div>
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#33cc55;">Flexural Toppling</div>
+            <p>Sub-vertical joints dip steeply into the slope; compressive stress
+               overcomes friction at the base.</p>
+          </div>
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#22ccff;">Wedge Failure</div>
+            <p>Intersection of two converging discontinuities daylights on the slope;
+               line of intersection is outside friction cone.</p>
+          </div>
         </div>
-        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
-          <div style="color:#33cc55;font-weight:700;margin-bottom:6px;">Flexural Toppling</div>
-          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
-            Sub-vertical joints dip steeply into the slope; compressive stress
-            overcomes friction at the base.
-          </p>
-        </div>
-        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
-          <div style="color:#22ccff;font-weight:700;margin-bottom:6px;">Wedge Failure</div>
-          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
-            Intersection of two converging discontinuities daylights on the slope;
-            line of intersection is outside friction cone.
-          </p>
-        </div>
+
+        <h2>Workflow</h2>
+        <ol>
+          <li>Acquire 3-D point cloud or mesh via LiDAR / UAV photogrammetry</li>
+          <li>Pre-process: register, de-noise, estimate normals (CloudCompare)</li>
+          <li>Load into this app; set slope orientation and geotechnical parameters</li>
+          <li>Run Sliding / Toppling / Wedge analyses</li>
+          <li>Review coloured results; export for further assessment or BIM integration</li>
+        </ol>
+
+        <h2>Reference</h2>
+        <p>
+          Chan, K.K. (2024). <em>Digital Mapping and Kinematic Analysis of Rock Slopes by
+          Extended Facet Amalgamation Approach (FAA)</em>. GEO Technical Note TN 4/2024,
+          Planning and Development Division, Civil Engineering and Development Department,
+          HKSAR Government.
+        </p>
+
       </div>
-
-      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Workflow</h2>
-      <ol style="font-size:.82rem;color:var(--muted);line-height:2;padding-left:20px;">
-        <li>Acquire 3-D point cloud or mesh via LiDAR / UAV photogrammetry</li>
-        <li>Pre-process: register, de-noise, estimate normals (CloudCompare)</li>
-        <li>Load into this app; set slope orientation and geotechnical parameters</li>
-        <li>Run Sliding / Toppling / Wedge analyses</li>
-        <li>Review coloured results; export for further assessment or BIM integration</li>
-      </ol>
-
-      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Reference</h2>
-      <p style="font-size:.78rem;color:var(--muted);line-height:1.6;">
-        Chan, K.K. (2024). <em>Digital Mapping and Kinematic Analysis of Rock Slopes by
-        Extended Facet Amalgamation Approach (FAA)</em>. GEO Technical Note TN 4/2024,
-        Planning and Development Division, Civil Engineering and Development Department,
-        HKSAR Government.
-      </p>
     </div>
 
   </div><!-- viewer-area -->

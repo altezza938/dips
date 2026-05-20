@@ -362,6 +362,71 @@ header nav a:hover { color: var(--text); border-color: var(--accent); }
   gap: 6px;
 }
 
+/* ── About tab ───────────────────────────────────────────────────────── */
+/* Override the default display:flex so About content stacks vertically  */
+#about.active {
+  display: block;
+  overflow-y: auto;
+}
+
+.about-content {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 30px 40px;
+}
+
+.about-content h1 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.about-content .subtitle {
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.about-content h2 {
+  font-size: 1rem;
+  margin: 20px 0 8px;
+  color: var(--cyan);
+}
+
+.about-content p,
+.about-content ol {
+  font-size: .85rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.about-content ol { padding-left: 20px; }
+.about-content ol li { line-height: 2; }
+
+.about-content strong { color: var(--text); }
+
+.failure-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.failure-card {
+  background: #12122a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.failure-card-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.failure-card p { font-size: .78rem; }
+
 /* ── Responsive ──────────────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .sidebar { width: 100%; min-width: unset; max-height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
