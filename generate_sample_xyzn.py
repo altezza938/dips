@@ -19,28 +19,36 @@ random.seed(42)
 SLOPE_DIP, SLOPE_DIR = 70.0, 140.0
 
 
-def plane_normal(dip, dip_dir):
-    """Upward unit normal of a plane dipping `dip` toward azimuth `dip_dir`.
-    Horizontal component points toward the dip direction; z is up."""
+def plane_basis(dip, dip_dir):
+    """Return (normal, strike_vec, dip_vec) for a plane dipping `dip` toward
+    azimuth `dip_dir`. All unit vectors; z is up, x=East, y=North."""
     d, a = math.radians(dip), math.radians(dip_dir)
-    return (math.sin(d) * math.sin(a),
-            math.sin(d) * math.cos(a),
-            math.cos(d))
+    n = (math.sin(d) * math.sin(a), math.sin(d) * math.cos(a), math.cos(d))
+    # horizontal strike vector (perpendicular to the dip direction)
+    u = (math.cos(a), -math.sin(a), 0.0)
+    # down-dip in-plane vector = n x u
+    v = (n[1] * u[2] - n[2] * u[1],
+         n[2] * u[0] - n[0] * u[2],
+         n[0] * u[1] - n[1] * u[0])
+    return n, u, v
 
 
-def jitter(v, s):
-    return v + random.uniform(-s, s)
+def jitter(val, s):
+    return val + random.uniform(-s, s)
 
 
-def make_patch(n, dip, dip_dir, cx, cy, cz, spread, normal_noise):
-    """A roughly planar cluster of points sharing one joint orientation."""
-    nx, ny, nz = plane_normal(dip, dip_dir)
+def make_patch(n, dip, dip_dir, cx, cy, cz, half_w, half_h, normal_noise):
+    """A genuinely planar patch: points lie on the plane (small off-plane
+    roughness only), so the cloud looks like a real rock face."""
+    (nx, ny, nz), (ux, uy, uz), (vx, vy, vz) = plane_basis(dip, dip_dir)
     rows = []
     for _ in range(n):
-        x = jitter(cx, spread)
-        y = jitter(cy, spread)
-        z = jitter(cz, spread)
-        # perturb the normal slightly, then renormalise
+        a = random.uniform(-half_w, half_w)   # along strike
+        b = random.uniform(-half_h, half_h)   # down dip
+        w = random.gauss(0, 0.04)             # off-plane roughness
+        x = cx + a * ux + b * vx + w * nx
+        y = cy + a * uy + b * vy + w * ny
+        z = cz + a * uz + b * vz + w * nz
         ax, ay, az = (jitter(nx, normal_noise),
                       jitter(ny, normal_noise),
                       jitter(nz, normal_noise))
@@ -51,14 +59,23 @@ def make_patch(n, dip, dip_dir, cx, cy, cz, spread, normal_noise):
 
 def main():
     rows = []
-    # Main slope face (background) — dip 70 / dir 140
-    rows += make_patch(3000, SLOPE_DIP, SLOPE_DIR, 0, 0, 0, 9.0, 0.05)
-    # J1 sliding set: shallow joints dipping the same way as the slope (27/140)
-    rows += make_patch(900, 27, 140, 0, 4, 5, 6.0, 0.04)
-    # J2 toppling set: steep joints dipping into the slope (85/320)
-    rows += make_patch(700, 85, 320, -2, 2, 6, 5.0, 0.04)
-    # J3 wedge partner: steep oblique set (80/250) — intersects J2 to form wedges
-    rows += make_patch(500, 80, 250, 2, 3, 6, 5.0, 0.04)
+    # Cut face (background) — steeper than the design slope (80/140) so the
+    # face itself neither daylights (sliding) nor dips into the slope
+    # (toppling); it stays "stable" grey and only the joint sets are flagged.
+    rows += make_patch(2600, 80, SLOPE_DIR, 0, 0, 8, 10.0, 9.0, 0.05)
+    # J1 sliding set: joints dipping the same way as the slope but flatter
+    # than the face (45/140) — steeper than friction, so they daylight & slide.
+    for cx, cy, cz in [(-5, -3, 9), (3, 1, 7), (-1, 4, 11)]:
+        rows += make_patch(300, 45, 140, cx, cy, cz, 2.2, 2.0, 0.04)
+    # J2 toppling set: steep slabs dipping into the slope (85/320)
+    for cx, cy, cz in [(-4, 0, 6), (2, -2, 9), (5, 2, 11)]:
+        rows += make_patch(240, 85, 320, cx, cy, cz, 1.6, 2.4, 0.04)
+    # Wedge sets J3 (45/110) and J4 (45/170): their line of intersection
+    # plunges ~41 deg toward 140 and daylights on the slope. The two sets
+    # share cluster centres so their points interleave under k-NN search.
+    for cx, cy, cz in [(-3, 3, 9), (3, -1, 8)]:
+        rows += make_patch(300, 45, 110, cx, cy, cz, 1.8, 1.8, 0.04)
+        rows += make_patch(300, 45, 170, cx, cy, cz, 1.8, 1.8, 0.04)
 
     with open("sample_slope.xyzn", "w") as f:
         f.write("# x y z nx ny nz  — synthetic FAA test slope\n")

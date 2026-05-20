@@ -1,0 +1,28 @@
+FAA Rock Slope Kinematic Analysis — Figure Captions
+====================================================
+
+These figures were produced from the bundled sample data (sample_slope.xyzn)
+using the FAA algorithms with: slope dip 70 deg, dip direction 140 deg,
+friction angle 30 deg, lateral limits 20 deg (sliding & toppling), minimum
+angular difference 30 deg, and k = 16 nearest neighbours.
+
+Result counts: 900 sliding points, 720 toppling points, 826 wedge intersections.
+
+----------------------------------------------------------------------
+fig1_stereonet.png
+----------------------------------------------------------------------
+Figure 1. Lower-hemisphere, equal-angle stereonet of the kinematic
+analysis. Each point is the pole to a discontinuity surface. Red poles
+satisfy the planar-sliding criteria (daylighting, friction-cone and
+lateral-limit tests); green poles satisfy the flexural-toppling criteria.
+Grey poles are kinematically stable. The white ring marks the pole to the
+design slope face (dip 70 deg, dip direction 140 deg).
+
+----------------------------------------------------------------------
+fig2_3dview.png
+----------------------------------------------------------------------
+Figure 2. Three-dimensional view of the analysed rock slope, coloured by
+kinematic failure mode: planar sliding (red), flexural toppling (green)
+and wedge sliding (cyan) over the stable rock face (grey). Axes are in
+metres (x = East, y = North, z = Up). Design slope 70 deg / 140 deg,
+friction angle 30 deg.

@@ -44,6 +44,17 @@ generate_sample_xyzn.py
     Regenerates sample_slope.xyzn. Pure Python, NO libraries required.
     Run:  python generate_sample_xyzn.py
 
+figures/
+    Ready-to-use result images for your proposal, with captions:
+      fig1_stereonet.png  - lower-hemisphere stereonet of the analysis
+      fig2_3dview.png     - 3-D slope coloured by failure mode
+      CAPTIONS.txt        - figure captions you can paste into the proposal
+    Regenerate with:  python make_figures.py   (needs numpy + matplotlib)
+
+make_figures.py
+    Reproduces the two figures above from sample_slope.xyzn using the real
+    FAA algorithms in faa_core.py.
+
 ----- Python desktop app (option B) ------------------------------------------
 faa_gui.py
     The desktop application's main window and user interface. This is the

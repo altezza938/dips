@@ -50,9 +50,35 @@ python faa_gui.py
 
 Live at **[altezza938.github.io/dips](https://altezza938.github.io/dips)**
 
-- Drag-and-drop LAS, LAZ, PLY, OBJ, or XYZ files
-- LAZ decompressed in-browser via WebAssembly (laz-perf)
+- Drag-and-drop LAS, PLY, OBJ, XYZ, XYZN, or PTS files
 - No installation required
+- LAZ is not supported in the browser — convert to LAS first (e.g. `las2las`)
+
+---
+
+## Example Results
+
+Produced from the bundled sample (`sample_slope.xyzn`) with slope **70° / 140°**,
+friction **30°**, lateral limits **20°**, min. angular difference **30°**, k = **16**.
+Result: **900** sliding · **720** toppling · **826** wedge intersections.
+
+### Stereonet (lower hemisphere, equal angle)
+
+![Stereonet of the FAA kinematic analysis](figures/fig1_stereonet.png)
+
+*Figure 1. Poles to discontinuities. Red poles satisfy the planar-sliding criteria,
+green poles the flexural-toppling criteria; grey poles are stable. The white ring is
+the pole to the slope face (70° / 140°).*
+
+### 3-D view coloured by failure mode
+
+![3-D view of the slope coloured by failure mode](figures/fig2_3dview.png)
+
+*Figure 2. Planar sliding (red), flexural toppling (green) and wedge sliding (cyan)
+over the stable rock face (grey). Axes in metres (x = East, y = North, z = Up).*
+
+> Regenerate these figures with `python make_figures.py` (uses `faa_core.py` and
+> the sample data; requires `numpy` and `matplotlib`).
 
 ---
 
