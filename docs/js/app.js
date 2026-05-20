@@ -19,6 +19,11 @@ let pointColors    = null;   // Float32Array, flat rgb [0–1], or null if no co
 let dataLoaded     = false;
 let resultCounts   = { sliding: 0, toppling: 0, wedge: 0 };
 
+// Persisted analysis masks — kept across individual runAnalysis calls so
+// updateStereonet always receives the latest result for each mode.
+let currentSlidingMask  = null;
+let currentTopplingMask = null;
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initThree();
@@ -395,6 +400,8 @@ function loadPLY(buffer, name) {
 // ── Finalise load (common for all formats) ────────────────────────────────────
 function finaliseLoad(label) {
   clearResultClouds();
+  currentSlidingMask  = null;
+  currentTopplingMask = null;
   resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
   updateCounts();
 
@@ -468,13 +475,15 @@ function runAnalysis(mode) {
         mask      = FAA.analyseSliding(pointNormals, params);
         resultPts = maskedPositions(pointPositions, mask);
         slidingCloud = addOrReplaceCloud(slidingCloud, resultPts, 0xff3333, 0.10);
-        resultCounts.sliding = countOnes(mask);
+        resultCounts.sliding  = countOnes(mask);
+        currentSlidingMask    = mask;
 
       } else if (mode === 'toppling') {
         mask      = FAA.analyseToppling(pointNormals, params);
         resultPts = maskedPositions(pointPositions, mask);
         toppingCloud = addOrReplaceCloud(toppingCloud, resultPts, 0x33cc55, 0.10);
-        resultCounts.toppling = countOnes(mask);
+        resultCounts.toppling  = countOnes(mask);
+        currentTopplingMask    = mask;
 
       } else if (mode === 'wedge') {
         // Limit to 5k points for browser KNN performance
@@ -488,10 +497,9 @@ function runAnalysis(mode) {
       }
 
       updateCounts();
-      updateStereonet(
-        mode === 'sliding'  ? mask : null,
-        mode === 'toppling' ? mask : null
-      );
+      // Always pass both masks so running wedge or a second analysis
+      // doesn't erase colours from the previous mode.
+      updateStereonet(currentSlidingMask, currentTopplingMask);
       setStatus(`${capitalize(mode)} analysis done — ${resultCounts[mode].toLocaleString()} potentially unstable elements.`);
     } catch (e) {
       setStatus('Analysis error: ' + e.message);
@@ -570,23 +578,45 @@ function updateStereonet(slidingMask, toppling_mask) {
 
   if (!dataLoaded || !pointNormals) return;
 
-  const step = Math.max(1, Math.floor(pointNormals.length / 3 / 4000));
   const n    = pointNormals.length / 3;
+  const step = Math.max(1, Math.floor(n / 4000));
+  const r1   = 1.8 * window.devicePixelRatio;
 
+  // Pass 1: grey background dots (every step-th point, skip already-coloured ones)
+  stereoCtx.fillStyle = 'rgba(170,170,204,0.12)';
   for (let i = 0; i < n; i += step) {
+    if (slidingMask?.[i] || toppling_mask?.[i]) continue;
     const [sx, sy] = FAA.normalToStereo(
       pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
-    const px = cx + sx * R;
-    const py = cy - sy * R;
-
-    let colour = 'rgba(170,170,204,0.12)';
-    if (slidingMask   && slidingMask[i])   colour = 'rgba(255,51,51,0.6)';
-    if (toppling_mask && toppling_mask[i]) colour = 'rgba(51,204,85,0.6)';
-
     stereoCtx.beginPath();
-    stereoCtx.arc(px, py, 1.8 * window.devicePixelRatio, 0, Math.PI * 2);
-    stereoCtx.fillStyle = colour;
+    stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
     stereoCtx.fill();
+  }
+
+  // Pass 2: ALL sliding hits (red) — no stepping, so no results are missed
+  if (slidingMask) {
+    stereoCtx.fillStyle = 'rgba(255,51,51,0.7)';
+    for (let i = 0; i < n; i++) {
+      if (!slidingMask[i]) continue;
+      const [sx, sy] = FAA.normalToStereo(
+        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      stereoCtx.beginPath();
+      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.fill();
+    }
+  }
+
+  // Pass 3: ALL toppling hits (green) — no stepping
+  if (toppling_mask) {
+    stereoCtx.fillStyle = 'rgba(51,204,85,0.7)';
+    for (let i = 0; i < n; i++) {
+      if (!toppling_mask[i]) continue;
+      const [sx, sy] = FAA.normalToStereo(
+        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      stereoCtx.beginPath();
+      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.fill();
+    }
   }
 
   drawSlopeMarker(cx, cy, R);
