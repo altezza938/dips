@@ -29,4 +29,6 @@ Thumbs.db
 # Generated outputs
 *.csv
 sample_slope.ply
+sample_slope.xyzn
 dips_app.zip
+*.zip

@@ -1023,7 +1023,7 @@ const FAA = (() => {
     if (pole_plunge > 90 - friction_angle) return false;
 
     // 3) Daylight: dip vector must point toward the slope
-    const dip_pt = dip_to_pole(90 - pole_plunge, (pole_trend + 180) % 360);
+    const dip_pt = dip_to_pole(pole_plunge, pole_trend);
     const dip_vec = plunge_trend_to_vec(...dip_pt);
     const slope_pole_vec = plunge_trend_to_vec(sp_plunge, sp_trend);
     if (dot(slope_pole_vec, dip_vec) > 0) return false;   // not daylighting
@@ -1044,9 +1044,8 @@ const FAA = (() => {
     const nn = normalise(n);
     const [pole_plunge, pole_trend] = vec_to_plunge_trend(nn);
 
-    // 1) Lateral limit (opposite direction to slope dip)
-    const anti_dir = (slope_dip_dir + 180) % 360;
-    if (angle_diff(pole_trend, anti_dir) > lateral_limit) return false;
+    // 1) Lateral limit (pole of an into-slope joint trends toward the slope dip dir)
+    if (angle_diff(pole_trend, slope_dip_dir) > lateral_limit) return false;
 
     // 2) Unstable zone: plunge of pole must be ≤ slope_dip − friction_angle
     const [sp_plunge] = dip_to_pole(slope_dip, slope_dip_dir);
