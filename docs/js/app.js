@@ -24,6 +24,58 @@ let resultCounts   = { sliding: 0, toppling: 0, wedge: 0 };
 let currentSlidingMask  = null;
 let currentTopplingMask = null;
 
+// Facet amalgamation cache: {normals, centroids, sizes, pointFacet} or null.
+// When amalgamation is on, analysis & the stereonet operate on facets, and the
+// persisted masks above are indexed per-facet (not per-point).
+let facets = null;
+
+function amalgamationOn() {
+  const el = document.getElementById('amalgamate');
+  return el ? el.checked : false;
+}
+
+function getAmalgParams() {
+  return {
+    angleTol: +(document.getElementById('facet_angle')?.value || 12),
+    minSize:  +(document.getElementById('facet_min')?.value || 20),
+  };
+}
+
+// Build (and cache) facets from the loaded cloud. Returns the facet object,
+// or null if amalgamation is off / no data.
+function ensureFacets() {
+  if (!amalgamationOn() || !dataLoaded || !pointNormals) return null;
+  if (!facets) {
+    facets = FAA.amalgamateFacets(pointPositions, pointNormals, getAmalgParams());
+  }
+  return facets;
+}
+
+// The element set the analysis & stereonet run on: facets if amalgamation is
+// on, otherwise the raw points.
+function analysisSet() {
+  const f = ensureFacets();
+  if (f) return { normals: f.normals, positions: f.centroids, sizes: f.sizes, pointFacet: f.pointFacet };
+  return { normals: pointNormals, positions: pointPositions, sizes: null, pointFacet: null };
+}
+
+// Expand a per-facet boolean mask to the positions of all member points.
+function facetMaskToPoints(pointFacet, facetMask) {
+  const out = [];
+  for (let i = 0; i < pointFacet.length; i++) {
+    const fid = pointFacet[i];
+    if (fid >= 0 && facetMask[fid]) out.push(pointPositions[i*3], pointPositions[i*3+1], pointPositions[i*3+2]);
+  }
+  return new Float32Array(out);
+}
+
+// Count member points covered by a per-facet mask.
+function facetMaskPointCount(pointFacet, facetMask, sizes) {
+  let c = 0;
+  for (let f = 0; f < facetMask.length; f++) if (facetMask[f]) c += sizes[f];
+  return c;
+}
+
 // ── Init ──────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initThree();
@@ -416,6 +468,7 @@ function finaliseLoad(label) {
   clearResultClouds();
   currentSlidingMask  = null;
   currentTopplingMask = null;
+  facets = null;
   resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
   updateCounts();
 
@@ -483,27 +536,32 @@ function runAnalysis(mode) {
   setTimeout(() => {
     try {
       const params = getParams();
+      const set    = analysisSet();
+      const amalg  = !!set.pointFacet;
       let mask, resultPts;
 
       if (mode === 'sliding') {
-        mask      = FAA.analyseSliding(pointNormals, params);
-        resultPts = maskedPositions(pointPositions, mask);
+        mask      = FAA.analyseSliding(set.normals, params);
+        resultPts = amalg ? facetMaskToPoints(set.pointFacet, mask)
+                          : maskedPositions(pointPositions, mask);
         slidingCloud = addOrReplaceCloud(slidingCloud, resultPts, 0xff3333, 0.10);
-        resultCounts.sliding  = countOnes(mask);
+        resultCounts.sliding  = amalg ? facetMaskPointCount(set.pointFacet, mask, set.sizes) : countOnes(mask);
         currentSlidingMask    = mask;
 
       } else if (mode === 'toppling') {
-        mask      = FAA.analyseToppling(pointNormals, params);
-        resultPts = maskedPositions(pointPositions, mask);
+        mask      = FAA.analyseToppling(set.normals, params);
+        resultPts = amalg ? facetMaskToPoints(set.pointFacet, mask)
+                          : maskedPositions(pointPositions, mask);
         toppingCloud = addOrReplaceCloud(toppingCloud, resultPts, 0x33cc55, 0.10);
-        resultCounts.toppling  = countOnes(mask);
+        resultCounts.toppling  = amalg ? facetMaskPointCount(set.pointFacet, mask, set.sizes) : countOnes(mask);
         currentTopplingMask    = mask;
 
       } else if (mode === 'wedge') {
-        // Limit to 5k points for browser KNN performance
-        const limit   = Math.min(pointPositions.length / 3, 5000);
-        const pts_sub = pointPositions.slice(0, limit * 3);
-        const nrm_sub = pointNormals.slice(0, limit * 3);
+        // Amalgamated facets are few, so analyse them all; raw points are
+        // capped at 5k for browser KNN performance.
+        const limit   = Math.min(set.positions.length / 3, amalg ? 20000 : 5000);
+        const pts_sub = set.positions.slice(0, limit * 3);
+        const nrm_sub = set.normals.slice(0, limit * 3);
         const wpts    = FAA.analyseWedge(pts_sub, nrm_sub, params);
         const flat    = new Float32Array(wpts.flat());
         wedgeCloud    = addOrReplaceCloud(wedgeCloud, flat, 0x22ccff, 0.12);
@@ -592,43 +650,49 @@ function updateStereonet(slidingMask, toppling_mask) {
 
   if (!dataLoaded || !pointNormals) return;
 
-  const n    = pointNormals.length / 3;
-  const step = Math.max(1, Math.floor(n / 4000));
-  const r1   = 1.8 * window.devicePixelRatio;
+  // Source poles: amalgamated facets (one pole each, sized by member count)
+  // if amalgamation is on; otherwise every point normal.
+  const f      = ensureFacets();
+  const srcN   = f ? f.normals : pointNormals;
+  const sizes  = f ? f.sizes   : null;
+  const n      = srcN.length / 3;
+  const step   = f ? 1 : Math.max(1, Math.floor(n / 4000));
+  const dpr    = window.devicePixelRatio;
+  const baseR  = (f ? 3.0 : 1.8) * dpr;
+  const dotR   = (i) => sizes
+    ? Math.max(2 * dpr, Math.min(7 * dpr, baseR * Math.sqrt(sizes[i] / 200)))
+    : baseR;
 
-  // Pass 1: grey background dots (every step-th point, skip already-coloured ones)
-  stereoCtx.fillStyle = 'rgba(170,170,204,0.12)';
+  // Pass 1: grey background poles (skip already-coloured ones)
+  stereoCtx.fillStyle = f ? 'rgba(170,170,204,0.55)' : 'rgba(170,170,204,0.12)';
   for (let i = 0; i < n; i += step) {
     if (slidingMask?.[i] || toppling_mask?.[i]) continue;
-    const [sx, sy] = FAA.normalToStereo(
-      pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+    const [sx, sy] = FAA.normalToStereo(srcN[i*3], srcN[i*3+1], srcN[i*3+2]);
     stereoCtx.beginPath();
-    stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+    stereoCtx.arc(cx + sx * R, cy - sy * R, dotR(i), 0, Math.PI * 2);
     stereoCtx.fill();
   }
 
-  // Pass 2: ALL sliding hits (red) — no stepping, so no results are missed
+  // Pass 2: sliding hits (red)
   if (slidingMask) {
-    stereoCtx.fillStyle = 'rgba(255,51,51,0.7)';
+    stereoCtx.fillStyle = f ? 'rgba(255,51,51,0.9)' : 'rgba(255,51,51,0.7)';
     for (let i = 0; i < n; i++) {
       if (!slidingMask[i]) continue;
-      const [sx, sy] = FAA.normalToStereo(
-        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      const [sx, sy] = FAA.normalToStereo(srcN[i*3], srcN[i*3+1], srcN[i*3+2]);
       stereoCtx.beginPath();
-      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.arc(cx + sx * R, cy - sy * R, dotR(i), 0, Math.PI * 2);
       stereoCtx.fill();
     }
   }
 
-  // Pass 3: ALL toppling hits (green) — no stepping
+  // Pass 3: toppling hits (green)
   if (toppling_mask) {
-    stereoCtx.fillStyle = 'rgba(51,204,85,0.7)';
+    stereoCtx.fillStyle = f ? 'rgba(51,204,85,0.9)' : 'rgba(51,204,85,0.7)';
     for (let i = 0; i < n; i++) {
       if (!toppling_mask[i]) continue;
-      const [sx, sy] = FAA.normalToStereo(
-        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      const [sx, sy] = FAA.normalToStereo(srcN[i*3], srcN[i*3+1], srcN[i*3+2]);
       stereoCtx.beginPath();
-      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.arc(cx + sx * R, cy - sy * R, dotR(i), 0, Math.PI * 2);
       stereoCtx.fill();
     }
   }
@@ -698,6 +762,23 @@ function bindUI() {
     if (!el || !val) return;
     el.addEventListener('input', () => { val.textContent = el.value + '°'; updateStereonet(); });
   });
+
+  // Amalgamation controls — changing any of these invalidates the facet cache.
+  const invalidateFacets = () => {
+    facets = null;
+    currentSlidingMask = null;
+    currentTopplingMask = null;
+    clearResultClouds();
+    resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
+    updateCounts();
+    updateStereonet();
+  };
+  document.getElementById('amalgamate')?.addEventListener('change', invalidateFacets);
+  document.getElementById('facet_min')?.addEventListener('change', invalidateFacets);
+  const fa = document.getElementById('facet_angle');
+  const faVal = document.getElementById('facet_angle_val');
+  fa?.addEventListener('input',  () => { if (faVal) faVal.textContent = fa.value + '°'; });
+  fa?.addEventListener('change', invalidateFacets);
 
   document.getElementById('chk_sliding') .addEventListener('change', e => toggleCloud(slidingCloud,  e.target.checked));
   document.getElementById('chk_toppling').addEventListener('change', e => toggleCloud(toppingCloud,  e.target.checked));

@@ -96,6 +96,27 @@
         <label>KNN for wedge (point cloud)</label>
         <input type="number" id="k_neighbours" value="16" min="4" max="64" step="1" />
       </div>
+
+      <div class="field" style="margin-top:6px;">
+        <label style="display:flex;align-items:center;gap:8px;color:var(--text);">
+          <input type="checkbox" id="amalgamate" checked style="width:auto;accent-color:var(--accent);" />
+          Amalgamate into facets
+        </label>
+        <p style="font-size:.68rem;color:var(--muted);margin-top:4px;line-height:1.4;">
+          Groups coplanar points into discrete facets and drops small noisy
+          patches (vegetation) before analysis — the FAA method.
+        </p>
+      </div>
+      <div class="field" id="facetAngleField">
+        <label>Facet angle tolerance
+          <span class="val-badge" id="facet_angle_val">12°</span>
+        </label>
+        <input type="range" id="facet_angle" min="3" max="30" step="1" value="12" />
+      </div>
+      <div class="field" id="facetMinField">
+        <label>Min facet size (points)</label>
+        <input type="number" id="facet_min" value="20" min="3" max="2000" step="1" />
+      </div>
     </div>
 
     <!-- 3. Run Analysis -->
