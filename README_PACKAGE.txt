@@ -35,7 +35,7 @@ FAA_RockSlope.html
     file with anyone — they just open it in a browser.
 
 sample_slope.xyzn
-    Ready-to-test synthetic rock slope (~5,100 points) with per-point
+    Ready-to-test synthetic rock slope (~5,400 points) with per-point
     normals already included. Contains a main slope face plus three joint
     sets engineered to produce clear sliding, toppling and wedge results.
     Plain text: each line is  "x y z nx ny nz".
@@ -43,6 +43,17 @@ sample_slope.xyzn
 generate_sample_xyzn.py
     Regenerates sample_slope.xyzn. Pure Python, NO libraries required.
     Run:  python generate_sample_xyzn.py
+
+figures/
+    Ready-to-use result images for your proposal, with captions:
+      fig1_stereonet.png  - lower-hemisphere stereonet of the analysis
+      fig2_3dview.png     - 3-D slope coloured by failure mode
+      CAPTIONS.txt        - figure captions you can paste into the proposal
+    Regenerate with:  python make_figures.py   (needs numpy + matplotlib)
+
+make_figures.py
+    Reproduces the two figures above from sample_slope.xyzn using the real
+    FAA algorithms in faa_core.py.
 
 ----- Python desktop app (option B) ------------------------------------------
 faa_gui.py
@@ -95,5 +106,5 @@ Requires Python 3.8 - 3.12.
     k Nearest Neighbours ...... 16
 
  With these values the sample yields roughly:
-    ~1,500 sliding points,  ~700 toppling points,  ~650 wedge intersections.
+    ~900 sliding points,  ~720 toppling points,  ~826 wedge intersections.
 ==============================================================================
