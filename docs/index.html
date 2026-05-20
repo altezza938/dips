@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAA Rock Slope Analysis — GEO TN 4/2024</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div>
+    <div class="logo">FAA <span>Rock Slope</span> Analysis</div>
+    <div class="tagline">Extended Facet Amalgamation Approach · GEO Technical Note TN 4/2024</div>
+  </div>
+  <nav>
+    <a href="https://github.com/altezza938/dips" target="_blank">GitHub</a>
+    <a href="#download">Download Desktop App</a>
+  </nav>
+</header>
+
+<!-- ── App body ───────────────────────────────────────────────────────── -->
+<div class="app-body">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- 1. Open File -->
+    <div class="section">
+      <div class="section-title">1. Open File</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".ply,.obj,.xyz,.xyzn,.pts,.pcd" />
+        <div class="dz-icon">📂</div>
+        <div class="dz-text"><strong>Drop file here</strong> or click to browse</div>
+        <div class="dz-info">PLY · OBJ · XYZ · PTS · XYZN</div>
+      </div>
+      <p id="fileInfo" style="font-size:.75rem;color:var(--muted);margin-top:8px;">
+        Sample slope loaded — 4,300 points
+      </p>
+    </div>
+
+    <!-- 2. Parameters -->
+    <div class="section">
+      <div class="section-title">2. Set Parameters</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Slope Dip (°)</label>
+          <input type="number" id="slope_dip" value="70" min="0" max="90" step="1" />
+        </div>
+        <div class="field">
+          <label>Dip Direction (°)</label>
+          <input type="number" id="slope_dip_dir" value="140" min="0" max="360" step="1" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Friction Angle (°)
+          <span class="val-badge" id="friction_angle_val">30°</span>
+        </label>
+        <input type="range" id="friction_angle" min="0" max="60" step="1" value="30" />
+      </div>
+
+      <div class="field">
+        <label>Lateral Limit – Sliding ±(°)
+          <span class="val-badge" id="lateral_sliding_val">20°</span>
+        </label>
+        <input type="range" id="lateral_sliding" min="0" max="90" step="1" value="20" />
+      </div>
+
+      <div class="field">
+        <label>Lateral Limit – Toppling ±(°)
+          <span class="val-badge" id="lateral_toppling_val">10°</span>
+        </label>
+        <input type="range" id="lateral_toppling" min="0" max="90" step="1" value="10" />
+      </div>
+
+      <div class="field">
+        <label>Min. Angular Diff. (Wedge) (°)
+          <span class="val-badge" id="min_angle_diff_val">30°</span>
+        </label>
+        <input type="range" id="min_angle_diff" min="1" max="90" step="1" value="30" />
+      </div>
+
+      <div class="field">
+        <label>KNN for wedge (point cloud)</label>
+        <input type="number" id="k_neighbours" value="16" min="4" max="64" step="1" />
+      </div>
+    </div>
+
+    <!-- 3. Run Analysis -->
+    <div class="section">
+      <div class="section-title">3. Run Analysis</div>
+      <div class="btn-row">
+        <button class="btn btn-slide"   id="btnSliding" >Sliding</button>
+        <button class="btn btn-topple"  id="btnToppling">Toppling</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-wedge"   id="btnWedge"   >Wedge</button>
+        <button class="btn btn-all"     id="btnAll"     >Run All</button>
+      </div>
+      <p style="font-size:.7rem;color:var(--muted);margin-top:6px;">
+        ⚠ Wedge analysis uses ≤ 5,000 points in browser (no limit in desktop app).
+      </p>
+    </div>
+
+    <!-- 4. Results -->
+    <div class="section">
+      <div class="section-title">4. View and Save Results</div>
+
+      <div class="result-row">
+        <input type="checkbox" id="chk_sliding" checked />
+        <div class="dot dot-slide"></div>
+        <label for="chk_sliding">Sliding</label>
+        <span class="count" id="count_sliding">—</span>
+      </div>
+      <div class="result-row">
+        <input type="checkbox" id="chk_toppling" checked />
+        <div class="dot dot-topple"></div>
+        <label for="chk_toppling">Toppling</label>
+        <span class="count" id="count_toppling">—</span>
+      </div>
+      <div class="result-row">
+        <input type="checkbox" id="chk_wedge" checked />
+        <div class="dot dot-wedge"></div>
+        <label for="chk_wedge">Wedge</label>
+        <span class="count" id="count_wedge">—</span>
+      </div>
+
+      <button class="btn btn-outline btn-full" id="btnExportSample"
+              style="margin-top:10px;">
+        Export Results as CSV
+      </button>
+    </div>
+
+    <!-- Download -->
+    <div class="section" id="download">
+      <div class="section-title">Download Desktop App</div>
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+        The Python desktop app handles millions of points, full mesh analysis,
+        PLY/OBJ/LAS import, and exports coloured point clouds.
+      </p>
+      <div class="download-links">
+        <a class="btn btn-primary btn-full"
+           href="https://github.com/altezza938/dips"
+           target="_blank">
+          View on GitHub
+        </a>
+      </div>
+      <div style="margin-top:10px;font-size:.72rem;color:var(--muted);line-height:1.7;">
+        <strong>Quick start:</strong><br/>
+        <code style="color:var(--cyan);">pip install -r requirements.txt</code><br/>
+        <code style="color:var(--cyan);">python faa_gui.py</code>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Viewer ──────────────────────────────────────────────────────── -->
+  <div class="viewer-area">
+
+    <div class="viewer-tabs">
+      <button class="tab-btn active" data-tab="viewer3d">3D View</button>
+      <button class="tab-btn" data-tab="stereo">Stereonet</button>
+      <button class="tab-btn" data-tab="about">About</button>
+    </div>
+
+    <!-- 3D View -->
+    <div class="tab-panel active" id="viewer3d">
+      <div class="canvas-wrap">
+        <canvas id="canvas3d"></canvas>
+
+        <div class="info-overlay">
+          <strong>3D Controls</strong><br/>
+          Left drag — Rotate<br/>
+          Right drag — Pan<br/>
+          Scroll — Zoom
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="dot" style="background:#aaaacc"></div> Base cloud</div>
+          <div class="legend-item"><div class="dot dot-slide"></div> Sliding failure</div>
+          <div class="legend-item"><div class="dot dot-topple"></div> Toppling failure</div>
+          <div class="legend-item"><div class="dot dot-wedge"></div> Wedge failure</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stereonet -->
+    <div class="tab-panel" id="stereo">
+      <div class="canvas-wrap">
+        <canvas id="stereoCanvas"></canvas>
+        <div class="info-overlay">
+          Lower hemisphere equal-angle projection.<br/>
+          Each point = pole of one facet / point normal.<br/>
+          <span style="color:#ff3333">■</span> Sliding &nbsp;
+          <span style="color:#33cc55">■</span> Toppling
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="tab-panel" id="about"
+         style="overflow-y:auto;padding:30px 40px;max-width:780px;">
+      <h1 style="font-size:1.4rem;margin-bottom:8px;">
+        Extended Facet Amalgamation Approach (FAA)
+      </h1>
+      <p style="color:var(--muted);font-size:.85rem;margin-bottom:20px;">
+        Digital Mapping and Kinematic Analysis of Rock Slopes<br/>
+        GEO Technical Note TN 4/2024 · K.K. Chan · Planning and Development Division
+      </p>
+
+      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">What is FAA?</h2>
+      <p style="font-size:.85rem;line-height:1.7;color:var(--muted);">
+        The Facet Amalgamation Approach is a novel technique for extracting major joint sets
+        from the point cloud of a scanned rock slope. Unlike existing methods that require
+        extensive parameter tuning, FAA performs <strong>kinematic analysis directly on each
+        point or triangle</strong> without first delineating individual discontinuity planes.
+        Results are mapped back to the 3-D model so that potentially unstable zones are
+        immediately visible.
+      </p>
+
+      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Failure Modes</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:20px;">
+        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
+          <div style="color:#ff3333;font-weight:700;margin-bottom:6px;">Planar Sliding</div>
+          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
+            Discontinuity daylights on slope face; dip exceeds friction angle;
+            dip direction within lateral limits.
+          </p>
+        </div>
+        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
+          <div style="color:#33cc55;font-weight:700;margin-bottom:6px;">Flexural Toppling</div>
+          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
+            Sub-vertical joints dip steeply into the slope; compressive stress
+            overcomes friction at the base.
+          </p>
+        </div>
+        <div style="background:#12122a;border:1px solid #2a2a4e;border-radius:8px;padding:12px;">
+          <div style="color:#22ccff;font-weight:700;margin-bottom:6px;">Wedge Failure</div>
+          <p style="font-size:.78rem;color:var(--muted);line-height:1.5;">
+            Intersection of two converging discontinuities daylights on the slope;
+            line of intersection is outside friction cone.
+          </p>
+        </div>
+      </div>
+
+      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Workflow</h2>
+      <ol style="font-size:.82rem;color:var(--muted);line-height:2;padding-left:20px;">
+        <li>Acquire 3-D point cloud or mesh via LiDAR / UAV photogrammetry</li>
+        <li>Pre-process: register, de-noise, estimate normals (CloudCompare)</li>
+        <li>Load into this app; set slope orientation and geotechnical parameters</li>
+        <li>Run Sliding / Toppling / Wedge analyses</li>
+        <li>Review coloured results; export for further assessment or BIM integration</li>
+      </ol>
+
+      <h2 style="font-size:1rem;margin:20px 0 8px;color:var(--cyan);">Reference</h2>
+      <p style="font-size:.78rem;color:var(--muted);line-height:1.6;">
+        Chan, K.K. (2024). <em>Digital Mapping and Kinematic Analysis of Rock Slopes by
+        Extended Facet Amalgamation Approach (FAA)</em>. GEO Technical Note TN 4/2024,
+        Planning and Development Division, Civil Engineering and Development Department,
+        HKSAR Government.
+      </p>
+    </div>
+
+  </div><!-- viewer-area -->
+
+</div><!-- app-body -->
+
+<!-- ── Status bar ─────────────────────────────────────────────────────── -->
+<div class="statusbar">
+  <span id="statusMsg">Initialising…</span>
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <span style="color:var(--muted);">GEO TN 4/2024 · FAA v1.0</span>
+</div>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// Minimal OrbitControls inlined so no extra CDN request needed
+// (full source from three.js examples, condensed)
+THREE.OrbitControls = function(object, domElement) {
+  this.object = object;
+  this.domElement = domElement || document;
+  this.enabled = true;
+  this.target = new THREE.Vector3();
+  this.enableDamping = false;
+  this.dampingFactor = 0.05;
+  this.enableZoom = true;
+  this.zoomSpeed = 1.0;
+  this.enableRotate = true;
+  this.rotateSpeed = 1.0;
+  this.enablePan = true;
+  this.panSpeed = 1.0;
+
+  var _this = this;
+  var STATE = { NONE:-1, ROTATE:0, DOLLY:1, PAN:2 };
+  var state = STATE.NONE;
+  var EPS = 1e-6;
+  var spherical = new THREE.Spherical();
+  var sphericalDelta = new THREE.Spherical();
+  var scale = 1;
+  var panOffset = new THREE.Vector3();
+  var rotateStart = new THREE.Vector2();
+  var rotateEnd = new THREE.Vector2();
+  var rotateDelta = new THREE.Vector2();
+  var panStart = new THREE.Vector2();
+  var panEnd = new THREE.Vector2();
+  var panDelta = new THREE.Vector2();
+  var dollyStart = new THREE.Vector2();
+  var dollyEnd = new THREE.Vector2();
+  var dollyDelta = new THREE.Vector2();
+
+  this.update = function() {
+    var offset = new THREE.Vector3();
+    var quat = new THREE.Quaternion().setFromUnitVectors(object.up, new THREE.Vector3(0,1,0));
+    var quatInverse = quat.clone().invert();
+    var lastPosition = new THREE.Vector3();
+    var lastQuaternion = new THREE.Quaternion();
+    return function update() {
+      var position = _this.object.position;
+      offset.copy(position).sub(_this.target);
+      offset.applyQuaternion(quat);
+      spherical.setFromVector3(offset);
+      spherical.theta += sphericalDelta.theta;
+      spherical.phi += sphericalDelta.phi;
+      spherical.phi = Math.max(EPS, Math.min(Math.PI - EPS, spherical.phi));
+      spherical.radius *= scale;
+      spherical.radius = Math.max(0.1, spherical.radius);
+      _this.target.add(panOffset);
+      offset.setFromSpherical(spherical);
+      offset.applyQuaternion(quatInverse);
+      position.copy(_this.target).add(offset);
+      _this.object.lookAt(_this.target);
+      if (_this.enableDamping) {
+        sphericalDelta.theta *= (1 - _this.dampingFactor);
+        sphericalDelta.phi *= (1 - _this.dampingFactor);
+        panOffset.multiplyScalar(1 - _this.dampingFactor);
+      } else {
+        sphericalDelta.set(0,0,0);
+        panOffset.set(0,0,0);
+      }
+      scale = 1;
+    };
+  }();
+
+  function rotateLeft(angle) { sphericalDelta.theta -= angle; }
+  function rotateUp(angle)   { sphericalDelta.phi   -= angle; }
+
+  var panLeft = function() {
+    var v = new THREE.Vector3();
+    return function(dist, mat) {
+      v.setFromMatrixColumn(mat, 0);
+      v.multiplyScalar(-dist);
+      panOffset.add(v);
+    };
+  }();
+
+  var panUp = function() {
+    var v = new THREE.Vector3();
+    return function(dist, mat) {
+      v.setFromMatrixColumn(mat, 1);
+      v.multiplyScalar(dist);
+      panOffset.add(v);
+    };
+  }();
+
+  var pan = function() {
+    var offset = new THREE.Vector3();
+    return function(dx, dy) {
+      var el = _this.domElement;
+      var height = el.clientHeight || 600;
+      offset.copy(_this.object.position).sub(_this.target);
+      var dist = offset.length() * Math.tan(_this.object.fov / 2 * Math.PI / 180) * 2;
+      panLeft(dx * dist / height, _this.object.matrix);
+      panUp(dy * dist / height, _this.object.matrix);
+    };
+  }();
+
+  function dollyIn(f)  { scale /= f; }
+  function dollyOut(f) { scale *= f; }
+  function getZoomScale() { return Math.pow(0.95, _this.zoomSpeed); }
+
+  function onMouseDown(e) {
+    if (!_this.enabled) return;
+    if (e.button === 0) { state = STATE.ROTATE; rotateStart.set(e.clientX, e.clientY); }
+    if (e.button === 2) { state = STATE.PAN;    panStart.set(e.clientX, e.clientY); }
+    if (e.button === 1) { state = STATE.DOLLY;  dollyStart.set(e.clientX, e.clientY); }
+    document.addEventListener('mousemove', onMouseMove, false);
+    document.addEventListener('mouseup',   onMouseUp,   false);
+  }
+
+  function onMouseMove(e) {
+    if (!_this.enabled) return;
+    var el = _this.domElement;
+    if (state === STATE.ROTATE) {
+      rotateEnd.set(e.clientX, e.clientY);
+      rotateDelta.subVectors(rotateEnd, rotateStart).multiplyScalar(_this.rotateSpeed);
+      var h = el.clientHeight || 600;
+      rotateLeft(2*Math.PI*rotateDelta.x/h);
+      rotateUp(2*Math.PI*rotateDelta.y/h);
+      rotateStart.copy(rotateEnd);
+    }
+    if (state === STATE.PAN) {
+      panEnd.set(e.clientX, e.clientY);
+      panDelta.subVectors(panEnd, panStart).multiplyScalar(_this.panSpeed);
+      pan(panDelta.x, panDelta.y);
+      panStart.copy(panEnd);
+    }
+    if (state === STATE.DOLLY) {
+      dollyEnd.set(e.clientX, e.clientY);
+      dollyDelta.subVectors(dollyEnd, dollyStart);
+      if (dollyDelta.y > 0) dollyIn(getZoomScale());
+      else dollyOut(getZoomScale());
+      dollyStart.copy(dollyEnd);
+    }
+    _this.update();
+  }
+
+  function onMouseUp() {
+    state = STATE.NONE;
+    document.removeEventListener('mousemove', onMouseMove, false);
+    document.removeEventListener('mouseup',   onMouseUp,   false);
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    if (e.deltaY < 0) dollyOut(getZoomScale());
+    else dollyIn(getZoomScale());
+    _this.update();
+  }
+
+  function onContextMenu(e) { e.preventDefault(); }
+
+  domElement.addEventListener('mousedown',   onMouseDown,   false);
+  domElement.addEventListener('wheel',       onWheel,       { passive: false });
+  domElement.addEventListener('contextmenu', onContextMenu, false);
+};
+</script>
+<script src="js/faa_core.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
