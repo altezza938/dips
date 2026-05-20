@@ -3,15 +3,15 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg:        #0f0f0f;
-  --panel:     #1a1a1a;
-  --border:    #2e2e2e;
-  --accent:    #da291c;   /* AECOM red */
-  --accent-dk: #b01e14;   /* AECOM red — darker hover */
-  --text:      #eeeeee;
-  --muted:     #888888;
+  --bg:        #15172b;   /* deep AECOM navy */
+  --panel:     #1e2139;   /* AECOM Ebony Clay #22253F lightened */
+  --border:    #2e3257;
+  --accent:    #00a651;   /* AECOM Green Haze */
+  --accent-dk: #007d3d;   /* AECOM green — darker hover */
+  --text:      #f0f0f0;
+  --muted:     #8892b0;
   --red:       #ff4a4a;   /* sliding failure */
-  --green:     #33cc55;   /* toppling failure */
+  --green:     #2ecc71;   /* toppling failure */
   --cyan:      #22ccff;   /* wedge failure */
   --orange:    #f97316;   /* run all */
   --radius:    6px;
@@ -29,7 +29,7 @@ body {
 
 /* ── Header ──────────────────────────────────────────────────────────── */
 header {
-  background: #141414;
+  background: #22253f;   /* AECOM Ebony Clay */
   border-bottom: 2px solid var(--accent);
   padding: 0 20px;
   display: flex;
@@ -110,7 +110,7 @@ header nav a {
   transition: all .2s;
 }
 
-header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(218,41,28,.12); }
+header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(0,166,81,.12); }
 
 /* ── Main layout ─────────────────────────────────────────────────────── */
 .app-body {
@@ -243,7 +243,7 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
 }
 
 .dropzone:hover,
-.dropzone.drag-over { border-color: var(--accent); background: rgba(218,41,28,.06); }
+.dropzone.drag-over { border-color: var(--accent); background: rgba(0,166,81,.06); }
 
 .dropzone input[type=file] {
   position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
@@ -331,7 +331,7 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
 
 /* ── Status bar ──────────────────────────────────────────────────────── */
 .statusbar {
-  background: #111111;
+  background: #22253f;
   border-top: 1px solid var(--border);
   padding: 5px 16px;
   font-size: 0.75rem;

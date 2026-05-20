@@ -233,43 +233,76 @@ const LASLoader = (() => {
   }
 
   // ── LAZ decompressor via laz-perf WASM ──────────────────────────────────────
-  // laz-perf is loaded from CDN. Depending on the build / Emscripten version it
-  // exposes either:
-  //   • createLazPerf()  – named factory (newer Emscripten EXPORT_NAME builds)
-  //   • Module           – default Emscripten global (older 0.0.x builds)
-  // We try both so the code works regardless of which CDN build is served.
+  // laz-perf is loaded dynamically. CDN builds may expose:
+  //   createLazPerf()  — named Emscripten factory
+  //   LazPerf / LazPerfExports — UMD export
+  //   Module           — bare Emscripten global (older 0.0.x)
+  // We try several CDN URLs in sequence and detect the global automatically.
+
+  const LAZ_CDN_URLS = [
+    'https://cdn.jsdelivr.net/npm/laz-perf@0.0.7/lib/web/laz-perf.js',
+    'https://unpkg.com/laz-perf@0.0.7/lib/web/laz-perf.js',
+    'https://cdn.jsdelivr.net/npm/laz-perf@0.0.7/build/laz-perf.js',
+    'https://unpkg.com/laz-perf@0.0.7/build/laz-perf.js',
+  ];
+
   let _lazPerfPromise = null;
+
+  function _resolveModule() {
+    // Try every known global name that laz-perf builds may use
+    for (const name of ['createLazPerf', 'LazPerf', 'LazPerfExports']) {
+      if (typeof window[name] === 'function') return window[name]();
+    }
+    if (typeof Module !== 'undefined') {
+      if (typeof Module._malloc === 'function' || Module.calledRun)
+        return Promise.resolve(Module);
+      return new Promise((resolve, reject) => {
+        const t = setTimeout(() => reject(new Error('laz-perf init timeout')), 20000);
+        const prev = Module.onRuntimeInitialized;
+        Module.onRuntimeInitialized = () => {
+          clearTimeout(t);
+          if (typeof prev === 'function') prev();
+          resolve(Module);
+        };
+      });
+    }
+    return null;
+  }
+
+  function _loadScript(url) {
+    return new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = url;
+      s.onload  = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
 
   function _getLazPerf() {
     if (!_lazPerfPromise) {
-      if (typeof createLazPerf === 'function') {
-        // Newer build: factory returns a Promise that resolves to the module.
-        _lazPerfPromise = createLazPerf();
-      } else if (typeof Module !== 'undefined' &&
-                 (typeof Module._malloc === 'function' || Module.calledRun)) {
-        // Older build already initialised synchronously.
-        _lazPerfPromise = Promise.resolve(Module);
-      } else if (typeof Module !== 'undefined') {
-        // Older build not yet ready — wait for runtime init callback.
-        _lazPerfPromise = new Promise((resolve, reject) => {
-          const prev = Module.onRuntimeInitialized;
-          const tid  = setTimeout(
-            () => reject(new Error('laz-perf WASM init timed out (20 s)')), 20000);
-          Module.onRuntimeInitialized = function () {
-            clearTimeout(tid);
-            if (typeof prev === 'function') prev();
-            resolve(Module);
-          };
-        });
-      } else {
-        return Promise.reject(new Error(
-          'LAZ decompression unavailable — laz-perf CDN script did not load.\n\n' +
+      _lazPerfPromise = (async () => {
+        // Fast path: CDN script already loaded by <script> tag in HTML
+        const quick = _resolveModule();
+        if (quick) return quick;
+
+        // Slow path: dynamically try each CDN URL in sequence
+        for (const url of LAZ_CDN_URLS) {
+          try {
+            await _loadScript(url);
+            const m = _resolveModule();
+            if (m) return m;
+          } catch (_) { /* try next */ }
+        }
+
+        throw new Error(
+          'LAZ decompression unavailable — all CDN sources failed.\n\n' +
           'Convert to uncompressed LAS first:\n' +
           '  • GeoSLAM Hub → Export → LAS (uncompressed)\n' +
           '  • CloudCompare → File → Save As → LAS 1.3\n' +
           '  • LAStools:  las2las -i file.laz -o file.las'
-        ));
-      }
+        );
+      })();
     }
     return _lazPerfPromise;
   }
