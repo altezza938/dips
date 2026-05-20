@@ -1,4 +1,4 @@
-<!-- dips_antigravity — FAA Rock Slope Analysis, single-file bundle -->
+<!-- dips — FAA Rock Slope Analysis, single-file bundle -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -881,8 +881,8 @@ THREE.OrbitControls = function(object, domElement) {
   domElement.addEventListener('contextmenu', onContextMenu, false);
 };
 </script>
-<!-- FAA Rock Slope Analysis — self-contained bundle -->
-<!-- Requires internet for three.js CDN and laz-perf CDN (LAZ files only) -->
+<!-- dips — FAA Rock Slope Analysis, single-file bundle -->
+<!-- Requires internet for three.js CDN and laz-perf CDN (LAZ only) -->
 <script>
 // ── faa_core.js ──────────────────────────────────────────────────────
 /**
@@ -1424,18 +1424,43 @@ const LASLoader = (() => {
   }
 
   // ── LAZ decompressor via laz-perf WASM ──────────────────────────────────────
-  // `createLazPerf` global is loaded from the CDN script tag in index.html.
-  // The module is initialised once and reused across calls.
+  // laz-perf is loaded from CDN. Depending on the build / Emscripten version it
+  // exposes either:
+  //   • createLazPerf()  – named factory (newer Emscripten EXPORT_NAME builds)
+  //   • Module           – default Emscripten global (older 0.0.x builds)
+  // We try both so the code works regardless of which CDN build is served.
   let _lazPerfPromise = null;
 
   function _getLazPerf() {
     if (!_lazPerfPromise) {
-      if (typeof createLazPerf === 'undefined')
-        throw new Error(
-          'laz-perf WASM library not available. ' +
-          'Ensure the CDN script tag is present in index.html.'
-        );
-      _lazPerfPromise = createLazPerf();
+      if (typeof createLazPerf === 'function') {
+        // Newer build: factory returns a Promise that resolves to the module.
+        _lazPerfPromise = createLazPerf();
+      } else if (typeof Module !== 'undefined' &&
+                 (typeof Module._malloc === 'function' || Module.calledRun)) {
+        // Older build already initialised synchronously.
+        _lazPerfPromise = Promise.resolve(Module);
+      } else if (typeof Module !== 'undefined') {
+        // Older build not yet ready — wait for runtime init callback.
+        _lazPerfPromise = new Promise((resolve, reject) => {
+          const prev = Module.onRuntimeInitialized;
+          const tid  = setTimeout(
+            () => reject(new Error('laz-perf WASM init timed out (20 s)')), 20000);
+          Module.onRuntimeInitialized = function () {
+            clearTimeout(tid);
+            if (typeof prev === 'function') prev();
+            resolve(Module);
+          };
+        });
+      } else {
+        return Promise.reject(new Error(
+          'LAZ decompression unavailable — laz-perf CDN script did not load.\n\n' +
+          'Convert to uncompressed LAS first:\n' +
+          '  • GeoSLAM Hub → Export → LAS (uncompressed)\n' +
+          '  • CloudCompare → File → Save As → LAS 1.3\n' +
+          '  • LAStools:  las2las -i file.laz -o file.las'
+        ));
+      }
     }
     return _lazPerfPromise;
   }
