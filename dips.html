@@ -568,9 +568,33 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
       <button class="btn btn-outline btn-full" id="btnFitPlane" style="margin-bottom:4px;">
         Fit Plane from Data
       </button>
-      <p style="font-size:.68rem;color:var(--muted);margin-bottom:4px;line-height:1.4;">
+      <p style="font-size:.68rem;color:var(--muted);margin-bottom:6px;line-height:1.4;">
         Estimates the slope dip / dip-direction from the loaded geometry
         (best-fit plane), like the reference tool.
+      </p>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;color:var(--text);">
+          <input type="checkbox" id="showSlopePlane" style="width:auto;accent-color:var(--accent);" />
+          Show slope plane
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Up axis</label>
+          <select id="up_axis" style="width:100%;background:#0a0a1e;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 10px;font-size:0.88rem;">
+            <option value="z">Z (up)</option>
+            <option value="y">Y (up)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>North offset (°)</label>
+          <input type="number" id="north_offset" value="0" min="-180" max="180" step="1" />
+        </div>
+      </div>
+      <p style="font-size:.68rem;color:var(--muted);margin-bottom:4px;line-height:1.4;">
+        Use these if the cloud isn't georeferenced: pick which axis points up,
+        and rotate azimuths so North matches the survey.
       </p>
 
       <div class="field">
@@ -1761,10 +1785,19 @@ let scene, camera, renderer, controls;
 let baseCloud = null, slidingCloud = null, toppingCloud = null, wedgeCloud = null;
 
 // ── App state ─────────────────────────────────────────────────────────────────
-let pointPositions = null;   // Float32Array, flat xyz — used for analysis
-let pointNormals   = null;   // Float32Array, flat xyz
+let pointPositions = null;   // Float32Array, flat xyz — frame-transformed, used for analysis
+let pointNormals   = null;   // Float32Array, flat xyz — frame-transformed
 let pointColors    = null;   // Float32Array, flat rgb [0–1], or null if no colour data
 let dataLoaded     = false;
+
+// As-loaded geometry, before the coordinate-frame transform is applied.
+let rawPositions = null;
+let rawNormals   = null;
+
+// Slope-plane visualisation + cloud bounds (for placing it).
+let slopePlaneMesh = null;
+let cloudCentroid  = [0, 0, 0];
+let cloudSpan      = 1;
 let resultCounts   = { sliding: 0, toppling: 0, wedge: 0 };
 
 // Persisted analysis masks — kept across individual runAnalysis calls so
@@ -1932,10 +1965,69 @@ function centreCamera(positions) {
     mx[0] = Math.max(mx[0], x); mx[1] = Math.max(mx[1], y); mx[2] = Math.max(mx[2], z);
   }
   const cx = sx/n, cy = sy/n, cz = sz/n;
-  const span = Math.max(mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]);
+  const span = Math.max(mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]) || 1;
+  cloudCentroid = [cx, cy, cz];
+  cloudSpan     = span;
   controls.target.set(cx, cy, cz);
   camera.position.set(cx + span, cy - span, cz + span * 0.5);
   camera.lookAt(cx, cy, cz);
+}
+
+// ── Coordinate frame ───────────────────────────────────────────────────────────
+function getFrameParams() {
+  return {
+    upAxis:      document.getElementById('up_axis')?.value || 'z',
+    northOffset: +(document.getElementById('north_offset')?.value || 0),
+  };
+}
+
+// Map a vector through the chosen frame: Y-up→Z-up (proper rotation about X),
+// then a north-offset rotation about the vertical (Z) axis.
+function frameTransformVec(x, y, z, upAxis, ca, sa) {
+  if (upAxis === 'y') { const ny = -z, nz = y; y = ny; z = nz; }  // (x, -z, y)
+  return [x*ca - y*sa, x*sa + y*ca, z];
+}
+
+// Rebuild the working (frame-transformed) arrays from the raw loaded data.
+function applyFrame() {
+  if (!rawPositions || !rawNormals) return;
+  const { upAxis, northOffset } = getFrameParams();
+  const a = northOffset * Math.PI / 180, ca = Math.cos(a), sa = Math.sin(a);
+  const n = rawPositions.length / 3;
+  pointPositions = new Float32Array(n * 3);
+  pointNormals   = new Float32Array(n * 3);
+  for (let i = 0; i < n; i++) {
+    const p = frameTransformVec(rawPositions[i*3], rawPositions[i*3+1], rawPositions[i*3+2], upAxis, ca, sa);
+    const m = frameTransformVec(rawNormals[i*3],   rawNormals[i*3+1],   rawNormals[i*3+2],   upAxis, ca, sa);
+    pointPositions[i*3]=p[0]; pointPositions[i*3+1]=p[1]; pointPositions[i*3+2]=p[2];
+    pointNormals[i*3]=m[0];   pointNormals[i*3+1]=m[1];   pointNormals[i*3+2]=m[2];
+  }
+}
+
+// ── Slope plane visualisation ──────────────────────────────────────────────────
+function updateSlopePlane() {
+  if (slopePlaneMesh && slopePlaneMesh.parent) scene.remove(slopePlaneMesh);
+  slopePlaneMesh = null;
+  const show = document.getElementById('showSlopePlane')?.checked;
+  if (!show || !dataLoaded) return;
+
+  const dip = +document.getElementById('slope_dip').value;
+  const dir = +document.getElementById('slope_dip_dir').value;
+  const dr = dip * Math.PI/180, ar = dir * Math.PI/180;
+  // upward slope normal (x=East, y=North, z=Up)
+  const nrm = new THREE.Vector3(
+    Math.sin(dr)*Math.sin(ar), Math.sin(dr)*Math.cos(ar), Math.cos(dr));
+
+  const size = cloudSpan * 1.3;
+  const geo  = new THREE.PlaneGeometry(size, size);
+  const mat  = new THREE.MeshBasicMaterial({
+    color: 0xd9a521, transparent: true, opacity: 0.4, side: THREE.DoubleSide,
+    depthWrite: false });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1), nrm);
+  mesh.position.set(cloudCentroid[0], cloudCentroid[1], cloudCentroid[2]);
+  scene.add(mesh);
+  slopePlaneMesh = mesh;
 }
 
 // ── Sample data generator ─────────────────────────────────────────────────────
@@ -2220,8 +2312,23 @@ function finaliseLoad(label) {
   resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
   updateCounts();
 
-  if (baseCloud && baseCloud.parent) scene.remove(baseCloud);
+  // Keep the as-loaded geometry and derive the frame-transformed working set.
+  rawPositions = pointPositions;
+  rawNormals   = pointNormals;
+  applyFrame();
 
+  rebuildBaseCloud();
+  dataLoaded = true;
+
+  document.getElementById('fileInfo').textContent = label;
+  setStatus(`Loaded ${label.split('|')[0].trim()}. Ready for analysis.`);
+  updateSlopePlane();
+  updateStereonet();
+}
+
+// Build (or rebuild) the displayed base point cloud from pointPositions.
+function rebuildBaseCloud() {
+  if (baseCloud && baseCloud.parent) scene.remove(baseCloud);
   const n = pointPositions.length / 3;
 
   // Sub-sample display if cloud is large (analysis always uses full pointPositions)
@@ -2246,11 +2353,22 @@ function finaliseLoad(label) {
 
   baseCloud = addOrReplaceCloud(null, dispPos, dispCol || 0xaaaacc, 0.07);
   centreCamera(pointPositions);
-  dataLoaded = true;
+}
 
-  document.getElementById('fileInfo').textContent = label;
-  setStatus(`Loaded ${label.split('|')[0].trim()}. Ready for analysis.`);
+// Re-derive the working set when a coordinate-frame control changes.
+function reapplyFrame() {
+  if (!rawPositions) return;
+  applyFrame();
+  facets = null;
+  currentSlidingMask = null;
+  currentTopplingMask = null;
+  clearResultClouds();
+  resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
+  updateCounts();
+  rebuildBaseCloud();
+  updateSlopePlane();
   updateStereonet();
+  setStatus('Coordinate frame updated — re-run the analysis.');
 }
 
 // ── Helper: uniform random subsample ─────────────────────────────────────────
@@ -2293,6 +2411,7 @@ function fitPlaneFromData() {
 
   document.getElementById('slope_dip').value     = dip.toFixed(1);
   document.getElementById('slope_dip_dir').value = dipDir.toFixed(1);
+  updateSlopePlane();
   updateStereonet(currentSlidingMask, currentTopplingMask);
   setStatus(`Fit plane: dip ${dip.toFixed(1)}°, dip direction ${dipDir.toFixed(1)}°.`);
 }
@@ -2567,6 +2686,12 @@ function bindUI() {
   document.getElementById('chk_wedge')   .addEventListener('change', e => toggleCloud(wedgeCloud,    e.target.checked));
 
   document.getElementById('btnFitPlane')?.addEventListener('click', fitPlaneFromData);
+  document.getElementById('showSlopePlane')?.addEventListener('change', updateSlopePlane);
+  document.getElementById('up_axis')?.addEventListener('change', reapplyFrame);
+  document.getElementById('north_offset')?.addEventListener('change', reapplyFrame);
+  ['slope_dip', 'slope_dip_dir'].forEach(id => {
+    document.getElementById(id)?.addEventListener('input', () => { updateSlopePlane(); updateStereonet(currentSlidingMask, currentTopplingMask); });
+  });
   document.getElementById('btnExportSample').addEventListener('click', exportResultsCSV);
 }
 

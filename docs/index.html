@@ -67,9 +67,33 @@
       <button class="btn btn-outline btn-full" id="btnFitPlane" style="margin-bottom:4px;">
         Fit Plane from Data
       </button>
-      <p style="font-size:.68rem;color:var(--muted);margin-bottom:4px;line-height:1.4;">
+      <p style="font-size:.68rem;color:var(--muted);margin-bottom:6px;line-height:1.4;">
         Estimates the slope dip / dip-direction from the loaded geometry
         (best-fit plane), like the reference tool.
+      </p>
+      <div class="field">
+        <label style="display:flex;align-items:center;gap:8px;color:var(--text);">
+          <input type="checkbox" id="showSlopePlane" style="width:auto;accent-color:var(--accent);" />
+          Show slope plane
+        </label>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Up axis</label>
+          <select id="up_axis" style="width:100%;background:#0a0a1e;border:1px solid var(--border);border-radius:5px;color:var(--text);padding:6px 10px;font-size:0.88rem;">
+            <option value="z">Z (up)</option>
+            <option value="y">Y (up)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>North offset (°)</label>
+          <input type="number" id="north_offset" value="0" min="-180" max="180" step="1" />
+        </div>
+      </div>
+      <p style="font-size:.68rem;color:var(--muted);margin-bottom:4px;line-height:1.4;">
+        Use these if the cloud isn't georeferenced: pick which axis points up,
+        and rotate azimuths so North matches the survey.
       </p>
 
       <div class="field">
