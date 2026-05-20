@@ -506,7 +506,11 @@ class MainWindow(QMainWindow):
         path, _ = QFileDialog.getOpenFileName(
             self, 'Open 3D File', '',
             'All supported (*.ply *.obj *.stl *.fbx *.off *.gltf *.glb '
-            '*.xyz *.xyzn *.xyzrgb *.pcd *.pts);; All files (*)')
+            '*.xyz *.xyzn *.xyzrgb *.pcd *.pts *.las *.laz);; '
+            'LAS / LAZ (*.las *.laz);; '
+            'Mesh (*.ply *.obj *.stl *.fbx *.off *.gltf *.glb);; '
+            'Point cloud (*.xyz *.xyzn *.xyzrgb *.pcd *.pts *.ply);; '
+            'All files (*)')
         if not path:
             return
 
