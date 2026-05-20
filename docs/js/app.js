@@ -213,6 +213,9 @@ function handleFileLoad(file) {
   showProgress(true);
 
   const reader = new FileReader();
+  reader.onprogress = e => {
+    if (e.lengthComputable) showProgress(true, (e.loaded / e.total) * 60);
+  };
 
   if (ext === 'xyz' || ext === 'pts' || ext === 'xyzn' || ext === 'xyzrgb') {
     reader.onload = e => {
@@ -238,7 +241,17 @@ function handleFileLoad(file) {
     };
     reader.readAsText(file);
 
-  } else if (ext === 'las' || ext === 'laz') {
+  } else if (ext === 'laz') {
+    setStatus(
+      'LAZ (compressed) files cannot be decompressed in the browser. ' +
+      'Please convert to uncompressed LAS first:\n' +
+      '  • GeoSLAM Hub → Export → LAS (uncompressed)\n' +
+      '  • CloudCompare → File → Save As → LAS 1.3\n' +
+      '  • LAStools: las2las -i file.laz -o file.las'
+    );
+    showProgress(false);
+
+  } else if (ext === 'las') {
     reader.onload = e => {
       // showProgress(false) is called inside loadLAS after async normal estimation
       loadLAS(e.target.result, file.name);
@@ -305,6 +318,7 @@ async function loadLAS(buffer, name) {
     }
   }
 
+  showProgress(true, 65);
   setStatus(`Estimating normals for ${n.toLocaleString()} pts… (may take a moment)`);
 
   // Defer heavy computation to keep the UI responsive
@@ -730,21 +744,38 @@ function setStatus(msg) {
   document.getElementById('statusMsg').textContent = msg;
 }
 
-function showProgress(on) {
-  document.getElementById('progressWrap').classList.toggle('show', on);
+let _progressTimer = null;
+
+function showProgress(on, pct) {
+  const wrap = document.getElementById('progressWrap');
+  const bar  = document.getElementById('progressBar');
+  const lbl  = document.getElementById('progressPct');
+
   if (on) {
-    let w = 0;
-    const iv = setInterval(() => {
-      w = Math.min(w + 5, 90);
-      document.getElementById('progressBar').style.width = w + '%';
-      if (!on) { clearInterval(iv); document.getElementById('progressBar').style.width = '100%'; }
-    }, 60);
+    wrap.classList.add('show');
+    if (pct !== undefined) {
+      // Exact percentage provided (e.g. during file read)
+      bar.style.width = pct + '%';
+      lbl.textContent = Math.round(pct) + '%';
+    } else {
+      // Animated fake progress up to 90%
+      if (_progressTimer) return;  // already running
+      let w = 0;
+      _progressTimer = setInterval(() => {
+        w = Math.min(w + 3, 90);
+        bar.style.width = w + '%';
+        lbl.textContent = Math.round(w) + '%';
+      }, 80);
+    }
   } else {
-    document.getElementById('progressBar').style.width = '100%';
+    if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
+    bar.style.width = '100%';
+    lbl.textContent = '100%';
     setTimeout(() => {
-      document.getElementById('progressWrap').classList.remove('show');
-      document.getElementById('progressBar').style.width = '0%';
-    }, 300);
+      wrap.classList.remove('show');
+      bar.style.width = '0%';
+      lbl.textContent = '0%';
+    }, 400);
   }
 }
 

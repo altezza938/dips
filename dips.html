@@ -1,4 +1,3 @@
-<!-- dips — FAA Rock Slope Analysis, single-file bundle -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -353,22 +352,35 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
 #statusMsg { flex: 1; }
 
 .progress-wrap {
-  width: 140px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-wrap.show { display: flex; }
+
+.progress-track {
+  width: 120px;
   height: 4px;
   background: var(--border);
   border-radius: 2px;
   overflow: hidden;
-  display: none;
+  flex-shrink: 0;
 }
-
-.progress-wrap.show { display: block; }
 
 .progress-bar {
   height: 100%;
-  background: var(--accent);  /* AECOM red progress */
+  background: var(--accent);
   border-radius: 2px;
-  transition: width .3s;
+  transition: width .25s ease;
   width: 0%;
+}
+
+.progress-pct {
+  font-size: 0.72rem;
+  color: var(--accent);
+  min-width: 32px;
+  font-family: monospace;
 }
 
 /* ── Info panel overlay ──────────────────────────────────────────────── */
@@ -514,8 +526,6 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
   </div>
 
   <nav>
-    <a href="https://github.com/altezza938/dips" target="_blank">GitHub</a>
-    <a href="#download">Desktop App</a>
   </nav>
 
 </header>
@@ -634,27 +644,6 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
       </button>
     </div>
 
-    <!-- Download -->
-    <div class="section" id="download">
-      <div class="section-title">Download Desktop App</div>
-      <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-        The Python desktop app handles millions of points, full mesh analysis,
-        native LAS/LAZ import (via laspy), and exports coloured point clouds.
-      </p>
-      <div class="download-links">
-        <a class="btn btn-primary btn-full"
-           href="https://github.com/altezza938/dips"
-           target="_blank">
-          View on GitHub
-        </a>
-      </div>
-      <div style="margin-top:10px;font-size:.72rem;color:var(--muted);line-height:1.7;">
-        <strong>Quick start:</strong><br/>
-        <code style="color:var(--cyan);">pip install -r requirements.txt</code><br/>
-        <code style="color:var(--cyan);">python faa_gui.py</code>
-      </div>
-    </div>
-
   </aside>
 
   <!-- ── Viewer ──────────────────────────────────────────────────────── -->
@@ -767,14 +756,16 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
 <div class="statusbar">
   <span id="statusMsg">Initialising…</span>
   <div class="progress-wrap" id="progressWrap">
-    <div class="progress-bar" id="progressBar"></div>
+    <div class="progress-track">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <span class="progress-pct" id="progressPct">0%</span>
   </div>
   <span style="color:var(--muted);">GEO TN 4/2024 · FAA v1.0</span>
 </div>
 
 <!-- ── Scripts ─────────────────────────────────────────────────────────── -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/laz-perf@0.0.7/lib/web/laz-perf.js"></script>
 <script>
 // Minimal OrbitControls inlined so no extra CDN request needed
 // (full source from three.js examples, condensed)
@@ -937,7 +928,6 @@ THREE.OrbitControls = function(object, domElement) {
 };
 </script>
 <script>
-// ── faa_core.js ──────────────────────────────────────────────────────
 /**
  * FAA Core Algorithms – JavaScript port
  * Based on GEO Technical Note TN 4/2024, Appendix A
@@ -1240,8 +1230,8 @@ const FAA = (() => {
 
 })();
 
-
-// ── las_loader.js ────────────────────────────────────────────────────
+</script>
+<script>
 /**
  * LAS 1.0–1.4 binary parser for browser use.
  *
@@ -1616,8 +1606,8 @@ const LASLoader = (() => {
   return { read, readLAZ, estimateNormals };
 })();
 
-
-// ── app.js ───────────────────────────────────────────────────────────
+</script>
+<script>
 /**
  * FAA Web App — Main Application
  * 3-D viewer powered by Three.js  |  Analysis by faa_core.js
@@ -1833,6 +1823,9 @@ function handleFileLoad(file) {
   showProgress(true);
 
   const reader = new FileReader();
+  reader.onprogress = e => {
+    if (e.lengthComputable) showProgress(true, (e.loaded / e.total) * 60);
+  };
 
   if (ext === 'xyz' || ext === 'pts' || ext === 'xyzn' || ext === 'xyzrgb') {
     reader.onload = e => {
@@ -1858,7 +1851,17 @@ function handleFileLoad(file) {
     };
     reader.readAsText(file);
 
-  } else if (ext === 'las' || ext === 'laz') {
+  } else if (ext === 'laz') {
+    setStatus(
+      'LAZ (compressed) files cannot be decompressed in the browser. ' +
+      'Please convert to uncompressed LAS first:\n' +
+      '  • GeoSLAM Hub → Export → LAS (uncompressed)\n' +
+      '  • CloudCompare → File → Save As → LAS 1.3\n' +
+      '  • LAStools: las2las -i file.laz -o file.las'
+    );
+    showProgress(false);
+
+  } else if (ext === 'las') {
     reader.onload = e => {
       // showProgress(false) is called inside loadLAS after async normal estimation
       loadLAS(e.target.result, file.name);
@@ -1925,6 +1928,7 @@ async function loadLAS(buffer, name) {
     }
   }
 
+  showProgress(true, 65);
   setStatus(`Estimating normals for ${n.toLocaleString()} pts… (may take a moment)`);
 
   // Defer heavy computation to keep the UI responsive
@@ -2350,21 +2354,38 @@ function setStatus(msg) {
   document.getElementById('statusMsg').textContent = msg;
 }
 
-function showProgress(on) {
-  document.getElementById('progressWrap').classList.toggle('show', on);
+let _progressTimer = null;
+
+function showProgress(on, pct) {
+  const wrap = document.getElementById('progressWrap');
+  const bar  = document.getElementById('progressBar');
+  const lbl  = document.getElementById('progressPct');
+
   if (on) {
-    let w = 0;
-    const iv = setInterval(() => {
-      w = Math.min(w + 5, 90);
-      document.getElementById('progressBar').style.width = w + '%';
-      if (!on) { clearInterval(iv); document.getElementById('progressBar').style.width = '100%'; }
-    }, 60);
+    wrap.classList.add('show');
+    if (pct !== undefined) {
+      // Exact percentage provided (e.g. during file read)
+      bar.style.width = pct + '%';
+      lbl.textContent = Math.round(pct) + '%';
+    } else {
+      // Animated fake progress up to 90%
+      if (_progressTimer) return;  // already running
+      let w = 0;
+      _progressTimer = setInterval(() => {
+        w = Math.min(w + 3, 90);
+        bar.style.width = w + '%';
+        lbl.textContent = Math.round(w) + '%';
+      }, 80);
+    }
   } else {
-    document.getElementById('progressBar').style.width = '100%';
+    if (_progressTimer) { clearInterval(_progressTimer); _progressTimer = null; }
+    bar.style.width = '100%';
+    lbl.textContent = '100%';
     setTimeout(() => {
-      document.getElementById('progressWrap').classList.remove('show');
-      document.getElementById('progressBar').style.width = '0%';
-    }, 300);
+      wrap.classList.remove('show');
+      bar.style.width = '0%';
+      lbl.textContent = '0%';
+    }, 400);
   }
 }
 

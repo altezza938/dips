@@ -25,8 +25,6 @@
   </div>
 
   <nav>
-    <a href="https://github.com/altezza938/dips" target="_blank">GitHub</a>
-    <a href="#download">Desktop App</a>
   </nav>
 
 </header>
@@ -145,27 +143,6 @@
       </button>
     </div>
 
-    <!-- Download -->
-    <div class="section" id="download">
-      <div class="section-title">Download Desktop App</div>
-      <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
-        The Python desktop app handles millions of points, full mesh analysis,
-        native LAS/LAZ import (via laspy), and exports coloured point clouds.
-      </p>
-      <div class="download-links">
-        <a class="btn btn-primary btn-full"
-           href="https://github.com/altezza938/dips"
-           target="_blank">
-          View on GitHub
-        </a>
-      </div>
-      <div style="margin-top:10px;font-size:.72rem;color:var(--muted);line-height:1.7;">
-        <strong>Quick start:</strong><br/>
-        <code style="color:var(--cyan);">pip install -r requirements.txt</code><br/>
-        <code style="color:var(--cyan);">python faa_gui.py</code>
-      </div>
-    </div>
-
   </aside>
 
   <!-- ── Viewer ──────────────────────────────────────────────────────── -->
@@ -278,7 +255,10 @@
 <div class="statusbar">
   <span id="statusMsg">Initialising…</span>
   <div class="progress-wrap" id="progressWrap">
-    <div class="progress-bar" id="progressBar"></div>
+    <div class="progress-track">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <span class="progress-pct" id="progressPct">0%</span>
   </div>
   <span style="color:var(--muted);">GEO TN 4/2024 · FAA v1.0</span>
 </div>
