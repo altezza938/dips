@@ -284,11 +284,121 @@ const FAA = (() => {
     return poleToStereo(plunge, trend);
   }
 
+  // ── facet amalgamation ────────────────────────────────────────────────────────
+
+  /**
+   * Group a point cloud into planar facets by region-growing on point normals.
+   * Neighbouring points whose normals fall within `angleTol` of the growing
+   * region's mean normal are merged; regions smaller than `minSize` points are
+   * discarded as noise (vegetation, isolated roughness).
+   *
+   * @returns {{normals:Float32Array, centroids:Float32Array,
+   *            sizes:Int32Array, pointFacet:Int32Array}}
+   *   normals/centroids/sizes: one entry per kept facet.
+   *   pointFacet: facet index for each input point, or -1 if discarded.
+   */
+  function amalgamateFacets(points, normals, opts) {
+    opts = opts || {};
+    const angleTol = opts.angleTol != null ? opts.angleTol : 12;
+    const minSize  = opts.minSize  != null ? opts.minSize  : 12;
+    const cosTol   = Math.cos(deg2rad(angleTol));
+    const n        = points.length / 3;
+
+    // Bounding box + voxel grid for spatial adjacency
+    let x0=Infinity,y0=Infinity,z0=Infinity,x1=-Infinity,y1=-Infinity,z1=-Infinity;
+    for (let i = 0; i < n; i++) {
+      const x=points[i*3], y=points[i*3+1], z=points[i*3+2];
+      if (x<x0)x0=x; if (x>x1)x1=x;
+      if (y<y0)y0=y; if (y>y1)y1=y;
+      if (z<z0)z0=z; if (z>z1)z1=z;
+    }
+    const span = Math.max(x1-x0, y1-y0, z1-z0, 1e-6);
+    const G    = Math.max(1, Math.ceil(Math.cbrt(n / 8)));
+    const cs   = span / G;
+    const gridKey = (gx, gy, gz) => (gx*G + gy)*G + gz;
+    const cellOf  = (i) => [
+      Math.min(Math.floor((points[i*3]   - x0)/cs), G-1),
+      Math.min(Math.floor((points[i*3+1] - y0)/cs), G-1),
+      Math.min(Math.floor((points[i*3+2] - z0)/cs), G-1),
+    ];
+    const grid = new Map();
+    for (let i = 0; i < n; i++) {
+      const [gx,gy,gz] = cellOf(i);
+      const k = gridKey(gx,gy,gz);
+      let c = grid.get(k); if (!c) { c = []; grid.set(k, c); }
+      c.push(i);
+    }
+
+    const label = new Int32Array(n).fill(-1);  // temp during grow, final facet id after
+    const queue = new Int32Array(n);
+    const fNormals = [], fCentroids = [], fSizes = [];
+
+    for (let s = 0; s < n; s++) {
+      if (label[s] !== -1) continue;
+      let top = 0; queue[top++] = s; label[s] = -2;  // -2 = claimed by current region
+      const members = [s];
+      let sumX=normals[s*3], sumY=normals[s*3+1], sumZ=normals[s*3+2];
+      let cenX=points[s*3], cenY=points[s*3+1], cenZ=points[s*3+2];
+      let mlen = Math.hypot(sumX,sumY,sumZ) || 1;
+      let mnx=sumX/mlen, mny=sumY/mlen, mnz=sumZ/mlen;
+
+      while (top > 0) {
+        const i = queue[--top];
+        const [gx,gy,gz] = cellOf(i);
+        for (let dx=-1; dx<=1; dx++) {
+          const ax=gx+dx; if (ax<0||ax>=G) continue;
+          for (let dy=-1; dy<=1; dy++) {
+            const ay=gy+dy; if (ay<0||ay>=G) continue;
+            for (let dz=-1; dz<=1; dz++) {
+              const az=gz+dz; if (az<0||az>=G) continue;
+              const cell = grid.get(gridKey(ax,ay,az)); if (!cell) continue;
+              for (let q=0; q<cell.length; q++) {
+                const j = cell[q];
+                if (label[j] !== -1) continue;
+                const jx=normals[j*3], jy=normals[j*3+1], jz=normals[j*3+2];
+                if (Math.abs(jx*mnx + jy*mny + jz*mnz) < cosTol) continue;
+                label[j] = -2; queue[top++] = j; members.push(j);
+                // accumulate sign-aligned normal into running mean
+                let ax2=jx, ay2=jy, az2=jz;
+                if (ax2*mnx + ay2*mny + az2*mnz < 0) { ax2=-ax2; ay2=-ay2; az2=-az2; }
+                sumX+=ax2; sumY+=ay2; sumZ+=az2;
+                cenX+=points[j*3]; cenY+=points[j*3+1]; cenZ+=points[j*3+2];
+                mlen = Math.hypot(sumX,sumY,sumZ) || 1;
+                mnx=sumX/mlen; mny=sumY/mlen; mnz=sumZ/mlen;
+              }
+            }
+          }
+        }
+      }
+
+      const cnt = members.length;
+      if (cnt >= minSize) {
+        let fz = mnz, fx = mnx, fy = mny;
+        if (fz > 0) { fx=-fx; fy=-fy; fz=-fz; }  // downward (lower hemisphere)
+        const fid = fSizes.length;
+        fNormals.push(fx, fy, fz);
+        fCentroids.push(cenX/cnt, cenY/cnt, cenZ/cnt);
+        fSizes.push(cnt);
+        for (let m = 0; m < cnt; m++) label[members[m]] = fid;
+      } else {
+        for (let m = 0; m < cnt; m++) label[members[m]] = -1;  // discard, allow re-grow
+      }
+    }
+
+    return {
+      normals:   new Float32Array(fNormals),
+      centroids: new Float32Array(fCentroids),
+      sizes:     new Int32Array(fSizes),
+      pointFacet: label,
+    };
+  }
+
   // ── public API ──────────────────────────────────────────────────────────────
   return {
     analyseSliding,
     analyseToppling,
     analyseWedge,
+    amalgamateFacets,
     normalToStereo,
     poleToStereo,
     dip_to_pole,
