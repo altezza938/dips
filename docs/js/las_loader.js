@@ -369,5 +369,5 @@ const LASLoader = (() => {
     return { points, colors, format, numPoints: numPts };
   }
 
-  return { read, readLAZ, estimateNormals };
+  return { read, readLAZ, estimateNormals, smallestEigenvec };
 })();
