@@ -345,22 +345,35 @@ header nav a:hover { color: #fff; border-color: var(--accent); background: rgba(
 #statusMsg { flex: 1; }
 
 .progress-wrap {
-  width: 140px;
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.progress-wrap.show { display: flex; }
+
+.progress-track {
+  width: 120px;
   height: 4px;
   background: var(--border);
   border-radius: 2px;
   overflow: hidden;
-  display: none;
+  flex-shrink: 0;
 }
-
-.progress-wrap.show { display: block; }
 
 .progress-bar {
   height: 100%;
-  background: var(--accent);  /* AECOM red progress */
+  background: var(--accent);
   border-radius: 2px;
-  transition: width .3s;
+  transition: width .25s ease;
   width: 0%;
+}
+
+.progress-pct {
+  font-size: 0.72rem;
+  color: var(--accent);
+  min-width: 32px;
+  font-family: monospace;
 }
 
 /* ── Info panel overlay ──────────────────────────────────────────────── */
