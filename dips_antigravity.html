@@ -1,0 +1,2264 @@
+<!-- dips_antigravity — FAA Rock Slope Analysis, single-file bundle -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FAA Rock Slope Analysis — GEO TN 4/2024</title>
+  <style>
+/* ── FAA Web App Styles ─────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0d0d1e;
+  --panel:     #12122a;
+  --border:    #2a2a4e;
+  --accent:    #4466ff;
+  --text:      #ccd0ee;
+  --muted:     #7788aa;
+  --red:       #ff3333;
+  --green:     #33cc55;
+  --cyan:      #22ccff;
+  --orange:    #ff8833;
+  --radius:    8px;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────── */
+header {
+  background: linear-gradient(135deg, #0a0a22, #1a1a3e);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+header .logo {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+header .logo span { color: var(--cyan); }
+
+header .tagline {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+header nav {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+}
+
+header nav a {
+  color: var(--muted);
+  text-decoration: none;
+  font-size: 0.82rem;
+  padding: 5px 12px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  transition: all .2s;
+}
+
+header nav a:hover { color: var(--text); border-color: var(--accent); }
+
+/* ── Main layout ─────────────────────────────────────────────────────── */
+.app-body {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Sidebar ─────────────────────────────────────────────────────────── */
+.sidebar {
+  width: 320px;
+  min-width: 280px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.section {
+  border-bottom: 1px solid var(--border);
+  padding: 14px 16px;
+}
+
+.section-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── Form elements ───────────────────────────────────────────────────── */
+.field { margin-bottom: 10px; }
+
+.field label {
+  display: block;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 3px;
+}
+
+.field input[type=number],
+.field input[type=range] {
+  width: 100%;
+  background: #0a0a1e;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 0.88rem;
+}
+
+.field input[type=range] {
+  padding: 0;
+  height: 6px;
+  accent-color: var(--accent);
+}
+
+.field input[type=number]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.field-row {
+  display: flex;
+  gap: 8px;
+}
+
+.field-row .field { flex: 1; }
+
+.val-badge {
+  display: inline-block;
+  background: #0a0a1e;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.82rem;
+  min-width: 44px;
+  text-align: center;
+  margin-left: 6px;
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
+  border: none;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter .15s, transform .1s;
+}
+
+.btn:hover  { filter: brightness(1.2); }
+.btn:active { transform: scale(.97); }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-outline   { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-slide     { background: var(--red);    color: #fff; }
+.btn-topple    { background: var(--green);  color: #fff; }
+.btn-wedge     { background: var(--cyan);   color: #111; }
+.btn-all       { background: var(--orange); color: #fff; }
+.btn-full      { width: 100%; }
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+/* ── File drop zone ──────────────────────────────────────────────────── */
+.dropzone {
+  border: 2px dashed var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+
+.dropzone:hover,
+.dropzone.drag-over { border-color: var(--accent); background: rgba(68,102,255,.06); }
+
+.dropzone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+
+.dropzone .dz-icon { font-size: 2rem; color: var(--muted); margin-bottom: 6px; }
+.dropzone .dz-text { font-size: 0.82rem; color: var(--muted); }
+.dropzone .dz-text strong { color: var(--text); }
+.dropzone .dz-info { font-size: 0.72rem; color: var(--muted); margin-top: 4px; }
+
+/* ── Result rows ─────────────────────────────────────────────────────── */
+.result-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.result-row input[type=checkbox] { accent-color: var(--accent); }
+
+.dot {
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dot-slide  { background: var(--red); }
+.dot-topple { background: var(--green); }
+.dot-wedge  { background: var(--cyan); }
+
+.result-row .count {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--muted);
+  font-family: monospace;
+}
+
+/* ── Main viewer area ────────────────────────────────────────────────── */
+.viewer-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.viewer-tabs {
+  display: flex;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  padding: 10px 20px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.84rem;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color .15s;
+}
+
+.tab-btn.active { color: var(--text); border-bottom-color: var(--accent); }
+.tab-btn:hover  { color: var(--text); }
+
+.tab-panel { display: none; flex: 1; overflow: hidden; }
+.tab-panel.active { display: flex; }
+
+/* ── 3-D canvas ──────────────────────────────────────────────────────── */
+#canvas3d {
+  width: 100%; height: 100%;
+  display: block;
+  background: var(--bg);
+  cursor: grab;
+}
+#canvas3d:active { cursor: grabbing; }
+
+/* ── Stereonet canvas ────────────────────────────────────────────────── */
+#stereoCanvas {
+  width: 100%; height: 100%;
+  display: block;
+  background: var(--bg);
+}
+
+/* ── Status bar ──────────────────────────────────────────────────────── */
+.statusbar {
+  background: #0a0a1a;
+  border-top: 1px solid var(--border);
+  padding: 5px 16px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+#statusMsg { flex: 1; }
+
+.progress-wrap {
+  width: 140px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  overflow: hidden;
+  display: none;
+}
+
+.progress-wrap.show { display: block; }
+
+.progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width .3s;
+  width: 0%;
+}
+
+/* ── Info panel overlay ──────────────────────────────────────────────── */
+.info-overlay {
+  position: absolute;
+  top: 12px; left: 12px;
+  background: rgba(10,10,30,.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+  font-size: 0.75rem;
+  color: var(--muted);
+  line-height: 1.6;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+.canvas-wrap {
+  position: relative;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Legend ──────────────────────────────────────────────────────────── */
+.legend {
+  position: absolute;
+  bottom: 12px; right: 12px;
+  background: rgba(10,10,30,.85);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 0.72rem;
+  line-height: 1.8;
+  pointer-events: none;
+}
+
+.legend-item { display: flex; align-items: center; gap: 6px; }
+
+/* ── Download section ────────────────────────────────────────────────── */
+.download-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ── About tab ───────────────────────────────────────────────────────── */
+/* Override the default display:flex so About content stacks vertically  */
+#about.active {
+  display: block;
+  overflow-y: auto;
+}
+
+.about-content {
+  max-width: 780px;
+  margin: 0 auto;
+  padding: 30px 40px;
+}
+
+.about-content h1 {
+  font-size: 1.4rem;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.about-content .subtitle {
+  color: var(--muted);
+  font-size: .85rem;
+  line-height: 1.6;
+  margin-bottom: 20px;
+}
+
+.about-content h2 {
+  font-size: 1rem;
+  margin: 20px 0 8px;
+  color: var(--cyan);
+}
+
+.about-content p,
+.about-content ol {
+  font-size: .85rem;
+  line-height: 1.7;
+  color: var(--muted);
+}
+
+.about-content ol { padding-left: 20px; }
+.about-content ol li { line-height: 2; }
+
+.about-content strong { color: var(--text); }
+
+.failure-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.failure-card {
+  background: #12122a;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.failure-card-title {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.failure-card p { font-size: .78rem; }
+
+/* ── Responsive ──────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .sidebar { width: 100%; min-width: unset; max-height: 50vh; border-right: none; border-bottom: 1px solid var(--border); }
+  .app-body { flex-direction: column; }
+}
+
+/* ── Tooltip ─────────────────────────────────────────────────────────── */
+[title] { cursor: help; }
+
+/* ── Scrollbar ───────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--panel); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────────── -->
+<header>
+  <div>
+    <div class="logo">FAA <span>Rock Slope</span> Analysis</div>
+    <div class="tagline">Extended Facet Amalgamation Approach · GEO Technical Note TN 4/2024</div>
+  </div>
+  <nav>
+    <a href="https://github.com/altezza938/dips" target="_blank">GitHub</a>
+    <a href="#download">Download Desktop App</a>
+  </nav>
+</header>
+
+<!-- ── App body ───────────────────────────────────────────────────────── -->
+<div class="app-body">
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="sidebar">
+
+    <!-- 1. Open File -->
+    <div class="section">
+      <div class="section-title">1. Open File</div>
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept=".ply,.obj,.xyz,.xyzn,.pts,.pcd,.las,.laz" />
+        <div class="dz-icon">📂</div>
+        <div class="dz-text"><strong>Drop file here</strong> or click to browse</div>
+        <div class="dz-info">LAS · PLY · OBJ · XYZ · PTS · XYZN</div>
+      </div>
+      <p id="fileInfo" style="font-size:.75rem;color:var(--muted);margin-top:8px;">
+        Sample slope loaded — 4,300 points
+      </p>
+    </div>
+
+    <!-- 2. Parameters -->
+    <div class="section">
+      <div class="section-title">2. Set Parameters</div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Slope Dip (°)</label>
+          <input type="number" id="slope_dip" value="70" min="0" max="90" step="1" />
+        </div>
+        <div class="field">
+          <label>Dip Direction (°)</label>
+          <input type="number" id="slope_dip_dir" value="140" min="0" max="360" step="1" />
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Friction Angle (°)
+          <span class="val-badge" id="friction_angle_val">30°</span>
+        </label>
+        <input type="range" id="friction_angle" min="0" max="60" step="1" value="30" />
+      </div>
+
+      <div class="field">
+        <label>Lateral Limit – Sliding ±(°)
+          <span class="val-badge" id="lateral_sliding_val">20°</span>
+        </label>
+        <input type="range" id="lateral_sliding" min="0" max="90" step="1" value="20" />
+      </div>
+
+      <div class="field">
+        <label>Lateral Limit – Toppling ±(°)
+          <span class="val-badge" id="lateral_toppling_val">10°</span>
+        </label>
+        <input type="range" id="lateral_toppling" min="0" max="90" step="1" value="10" />
+      </div>
+
+      <div class="field">
+        <label>Min. Angular Diff. (Wedge) (°)
+          <span class="val-badge" id="min_angle_diff_val">30°</span>
+        </label>
+        <input type="range" id="min_angle_diff" min="1" max="90" step="1" value="30" />
+      </div>
+
+      <div class="field">
+        <label>KNN for wedge (point cloud)</label>
+        <input type="number" id="k_neighbours" value="16" min="4" max="64" step="1" />
+      </div>
+    </div>
+
+    <!-- 3. Run Analysis -->
+    <div class="section">
+      <div class="section-title">3. Run Analysis</div>
+      <div class="btn-row">
+        <button class="btn btn-slide"   id="btnSliding" >Sliding</button>
+        <button class="btn btn-topple"  id="btnToppling">Toppling</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-wedge"   id="btnWedge"   >Wedge</button>
+        <button class="btn btn-all"     id="btnAll"     >Run All</button>
+      </div>
+      <p style="font-size:.7rem;color:var(--muted);margin-top:6px;">
+        ⚠ Wedge analysis uses ≤ 5,000 points in browser (no limit in desktop app).
+      </p>
+    </div>
+
+    <!-- 4. Results -->
+    <div class="section">
+      <div class="section-title">4. View and Save Results</div>
+
+      <div class="result-row">
+        <input type="checkbox" id="chk_sliding" checked />
+        <div class="dot dot-slide"></div>
+        <label for="chk_sliding">Sliding</label>
+        <span class="count" id="count_sliding">—</span>
+      </div>
+      <div class="result-row">
+        <input type="checkbox" id="chk_toppling" checked />
+        <div class="dot dot-topple"></div>
+        <label for="chk_toppling">Toppling</label>
+        <span class="count" id="count_toppling">—</span>
+      </div>
+      <div class="result-row">
+        <input type="checkbox" id="chk_wedge" checked />
+        <div class="dot dot-wedge"></div>
+        <label for="chk_wedge">Wedge</label>
+        <span class="count" id="count_wedge">—</span>
+      </div>
+
+      <button class="btn btn-outline btn-full" id="btnExportSample"
+              style="margin-top:10px;">
+        Export Results as CSV
+      </button>
+    </div>
+
+    <!-- Download -->
+    <div class="section" id="download">
+      <div class="section-title">Download Desktop App</div>
+      <p style="font-size:.75rem;color:var(--muted);margin-bottom:10px;line-height:1.5;">
+        The Python desktop app handles millions of points, full mesh analysis,
+        native LAS/LAZ import (via laspy), and exports coloured point clouds.
+      </p>
+      <div class="download-links">
+        <a class="btn btn-primary btn-full"
+           href="https://github.com/altezza938/dips"
+           target="_blank">
+          View on GitHub
+        </a>
+      </div>
+      <div style="margin-top:10px;font-size:.72rem;color:var(--muted);line-height:1.7;">
+        <strong>Quick start:</strong><br/>
+        <code style="color:var(--cyan);">pip install -r requirements.txt</code><br/>
+        <code style="color:var(--cyan);">python faa_gui.py</code>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ── Viewer ──────────────────────────────────────────────────────── -->
+  <div class="viewer-area">
+
+    <div class="viewer-tabs">
+      <button class="tab-btn active" data-tab="viewer3d">3D View</button>
+      <button class="tab-btn" data-tab="stereo">Stereonet</button>
+      <button class="tab-btn" data-tab="about">About</button>
+    </div>
+
+    <!-- 3D View -->
+    <div class="tab-panel active" id="viewer3d">
+      <div class="canvas-wrap">
+        <canvas id="canvas3d"></canvas>
+
+        <div class="info-overlay">
+          <strong>3D Controls</strong><br/>
+          Left drag — Rotate<br/>
+          Right drag — Pan<br/>
+          Scroll — Zoom
+        </div>
+
+        <div class="legend">
+          <div class="legend-item"><div class="dot" style="background:#aaaacc"></div> Base cloud</div>
+          <div class="legend-item"><div class="dot dot-slide"></div> Sliding failure</div>
+          <div class="legend-item"><div class="dot dot-topple"></div> Toppling failure</div>
+          <div class="legend-item"><div class="dot dot-wedge"></div> Wedge failure</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stereonet -->
+    <div class="tab-panel" id="stereo">
+      <div class="canvas-wrap">
+        <canvas id="stereoCanvas"></canvas>
+        <div class="info-overlay">
+          Lower hemisphere equal-angle projection.<br/>
+          Each point = pole of one facet / point normal.<br/>
+          <span style="color:#ff3333">■</span> Sliding &nbsp;
+          <span style="color:#33cc55">■</span> Toppling
+        </div>
+      </div>
+    </div>
+
+    <!-- About -->
+    <div class="tab-panel" id="about">
+      <div class="about-content">
+
+        <h1>Extended Facet Amalgamation Approach (FAA)</h1>
+        <p class="subtitle">
+          Digital Mapping and Kinematic Analysis of Rock Slopes<br/>
+          GEO Technical Note TN 4/2024 · K.K. Chan · Planning and Development Division
+        </p>
+
+        <h2>What is FAA?</h2>
+        <p>
+          The Facet Amalgamation Approach is a novel technique for extracting major joint sets
+          from the point cloud of a scanned rock slope. Unlike existing methods that require
+          extensive parameter tuning, FAA performs <strong>kinematic analysis directly on each
+          point or triangle</strong> without first delineating individual discontinuity planes.
+          Results are mapped back to the 3-D model so that potentially unstable zones are
+          immediately visible.
+        </p>
+
+        <h2>Failure Modes</h2>
+        <div class="failure-cards">
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#ff3333;">Planar Sliding</div>
+            <p>Discontinuity daylights on slope face; dip exceeds friction angle;
+               dip direction within lateral limits.</p>
+          </div>
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#33cc55;">Flexural Toppling</div>
+            <p>Sub-vertical joints dip steeply into the slope; compressive stress
+               overcomes friction at the base.</p>
+          </div>
+          <div class="failure-card">
+            <div class="failure-card-title" style="color:#22ccff;">Wedge Failure</div>
+            <p>Intersection of two converging discontinuities daylights on the slope;
+               line of intersection is outside friction cone.</p>
+          </div>
+        </div>
+
+        <h2>Workflow</h2>
+        <ol>
+          <li>Acquire 3-D point cloud or mesh via LiDAR / UAV photogrammetry</li>
+          <li>Pre-process: register, de-noise, estimate normals (CloudCompare)</li>
+          <li>Load into this app; set slope orientation and geotechnical parameters</li>
+          <li>Run Sliding / Toppling / Wedge analyses</li>
+          <li>Review coloured results; export for further assessment or BIM integration</li>
+        </ol>
+
+        <h2>Reference</h2>
+        <p>
+          Chan, K.K. (2024). <em>Digital Mapping and Kinematic Analysis of Rock Slopes by
+          Extended Facet Amalgamation Approach (FAA)</em>. GEO Technical Note TN 4/2024,
+          Planning and Development Division, Civil Engineering and Development Department,
+          HKSAR Government.
+        </p>
+
+      </div>
+    </div>
+
+  </div><!-- viewer-area -->
+
+</div><!-- app-body -->
+
+<!-- ── Status bar ─────────────────────────────────────────────────────── -->
+<div class="statusbar">
+  <span id="statusMsg">Initialising…</span>
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-bar" id="progressBar"></div>
+  </div>
+  <span style="color:var(--muted);">GEO TN 4/2024 · FAA v1.0</span>
+</div>
+
+<!-- ── Scripts ─────────────────────────────────────────────────────────── -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/laz-perf@0.0.7/lib/web/laz-perf.js"></script>
+<script>
+// Minimal OrbitControls inlined so no extra CDN request needed
+// (full source from three.js examples, condensed)
+THREE.OrbitControls = function(object, domElement) {
+  this.object = object;
+  this.domElement = domElement || document;
+  this.enabled = true;
+  this.target = new THREE.Vector3();
+  this.enableDamping = false;
+  this.dampingFactor = 0.05;
+  this.enableZoom = true;
+  this.zoomSpeed = 1.0;
+  this.enableRotate = true;
+  this.rotateSpeed = 1.0;
+  this.enablePan = true;
+  this.panSpeed = 1.0;
+
+  var _this = this;
+  var STATE = { NONE:-1, ROTATE:0, DOLLY:1, PAN:2 };
+  var state = STATE.NONE;
+  var EPS = 1e-6;
+  var spherical = new THREE.Spherical();
+  var sphericalDelta = new THREE.Spherical();
+  var scale = 1;
+  var panOffset = new THREE.Vector3();
+  var rotateStart = new THREE.Vector2();
+  var rotateEnd = new THREE.Vector2();
+  var rotateDelta = new THREE.Vector2();
+  var panStart = new THREE.Vector2();
+  var panEnd = new THREE.Vector2();
+  var panDelta = new THREE.Vector2();
+  var dollyStart = new THREE.Vector2();
+  var dollyEnd = new THREE.Vector2();
+  var dollyDelta = new THREE.Vector2();
+
+  this.update = function() {
+    var offset = new THREE.Vector3();
+    var quat = new THREE.Quaternion().setFromUnitVectors(object.up, new THREE.Vector3(0,1,0));
+    var quatInverse = quat.clone().invert();
+    var lastPosition = new THREE.Vector3();
+    var lastQuaternion = new THREE.Quaternion();
+    return function update() {
+      var position = _this.object.position;
+      offset.copy(position).sub(_this.target);
+      offset.applyQuaternion(quat);
+      spherical.setFromVector3(offset);
+      spherical.theta += sphericalDelta.theta;
+      spherical.phi += sphericalDelta.phi;
+      spherical.phi = Math.max(EPS, Math.min(Math.PI - EPS, spherical.phi));
+      spherical.radius *= scale;
+      spherical.radius = Math.max(0.1, spherical.radius);
+      _this.target.add(panOffset);
+      offset.setFromSpherical(spherical);
+      offset.applyQuaternion(quatInverse);
+      position.copy(_this.target).add(offset);
+      _this.object.lookAt(_this.target);
+      if (_this.enableDamping) {
+        sphericalDelta.theta *= (1 - _this.dampingFactor);
+        sphericalDelta.phi *= (1 - _this.dampingFactor);
+        panOffset.multiplyScalar(1 - _this.dampingFactor);
+      } else {
+        sphericalDelta.set(0,0,0);
+        panOffset.set(0,0,0);
+      }
+      scale = 1;
+    };
+  }();
+
+  function rotateLeft(angle) { sphericalDelta.theta -= angle; }
+  function rotateUp(angle)   { sphericalDelta.phi   -= angle; }
+
+  var panLeft = function() {
+    var v = new THREE.Vector3();
+    return function(dist, mat) {
+      v.setFromMatrixColumn(mat, 0);
+      v.multiplyScalar(-dist);
+      panOffset.add(v);
+    };
+  }();
+
+  var panUp = function() {
+    var v = new THREE.Vector3();
+    return function(dist, mat) {
+      v.setFromMatrixColumn(mat, 1);
+      v.multiplyScalar(dist);
+      panOffset.add(v);
+    };
+  }();
+
+  var pan = function() {
+    var offset = new THREE.Vector3();
+    return function(dx, dy) {
+      var el = _this.domElement;
+      var height = el.clientHeight || 600;
+      offset.copy(_this.object.position).sub(_this.target);
+      var dist = offset.length() * Math.tan(_this.object.fov / 2 * Math.PI / 180) * 2;
+      panLeft(dx * dist / height, _this.object.matrix);
+      panUp(dy * dist / height, _this.object.matrix);
+    };
+  }();
+
+  function dollyIn(f)  { scale /= f; }
+  function dollyOut(f) { scale *= f; }
+  function getZoomScale() { return Math.pow(0.95, _this.zoomSpeed); }
+
+  function onMouseDown(e) {
+    if (!_this.enabled) return;
+    if (e.button === 0) { state = STATE.ROTATE; rotateStart.set(e.clientX, e.clientY); }
+    if (e.button === 2) { state = STATE.PAN;    panStart.set(e.clientX, e.clientY); }
+    if (e.button === 1) { state = STATE.DOLLY;  dollyStart.set(e.clientX, e.clientY); }
+    document.addEventListener('mousemove', onMouseMove, false);
+    document.addEventListener('mouseup',   onMouseUp,   false);
+  }
+
+  function onMouseMove(e) {
+    if (!_this.enabled) return;
+    var el = _this.domElement;
+    if (state === STATE.ROTATE) {
+      rotateEnd.set(e.clientX, e.clientY);
+      rotateDelta.subVectors(rotateEnd, rotateStart).multiplyScalar(_this.rotateSpeed);
+      var h = el.clientHeight || 600;
+      rotateLeft(2*Math.PI*rotateDelta.x/h);
+      rotateUp(2*Math.PI*rotateDelta.y/h);
+      rotateStart.copy(rotateEnd);
+    }
+    if (state === STATE.PAN) {
+      panEnd.set(e.clientX, e.clientY);
+      panDelta.subVectors(panEnd, panStart).multiplyScalar(_this.panSpeed);
+      pan(panDelta.x, panDelta.y);
+      panStart.copy(panEnd);
+    }
+    if (state === STATE.DOLLY) {
+      dollyEnd.set(e.clientX, e.clientY);
+      dollyDelta.subVectors(dollyEnd, dollyStart);
+      if (dollyDelta.y > 0) dollyIn(getZoomScale());
+      else dollyOut(getZoomScale());
+      dollyStart.copy(dollyEnd);
+    }
+    _this.update();
+  }
+
+  function onMouseUp() {
+    state = STATE.NONE;
+    document.removeEventListener('mousemove', onMouseMove, false);
+    document.removeEventListener('mouseup',   onMouseUp,   false);
+  }
+
+  function onWheel(e) {
+    e.preventDefault();
+    if (e.deltaY < 0) dollyOut(getZoomScale());
+    else dollyIn(getZoomScale());
+    _this.update();
+  }
+
+  function onContextMenu(e) { e.preventDefault(); }
+
+  domElement.addEventListener('mousedown',   onMouseDown,   false);
+  domElement.addEventListener('wheel',       onWheel,       { passive: false });
+  domElement.addEventListener('contextmenu', onContextMenu, false);
+};
+</script>
+<!-- FAA Rock Slope Analysis — self-contained bundle -->
+<!-- Requires internet for three.js CDN and laz-perf CDN (LAZ files only) -->
+<script>
+// ── faa_core.js ──────────────────────────────────────────────────────
+/**
+ * FAA Core Algorithms – JavaScript port
+ * Based on GEO Technical Note TN 4/2024, Appendix A
+ * Extended Facet Amalgamation Approach for Rock Slope Kinematic Analysis
+ */
+
+const FAA = (() => {
+
+  // ── vector helpers ──────────────────────────────────────────────────────────
+  function dot(a, b) { return a[0]*b[0] + a[1]*b[1] + a[2]*b[2]; }
+  function cross(a, b) {
+    return [
+      a[1]*b[2] - a[2]*b[1],
+      a[2]*b[0] - a[0]*b[2],
+      a[0]*b[1] - a[1]*b[0]
+    ];
+  }
+  function norm(v) { return Math.sqrt(dot(v, v)); }
+  function normalise(v) {
+    const n = norm(v);
+    return n > 0 ? v.map(x => x / n) : v;
+  }
+  function deg2rad(d) { return d * Math.PI / 180; }
+  function rad2deg(r) { return r * 180 / Math.PI; }
+
+  /**
+   * Convert plunge & trend (degrees) to unit direction vector.
+   * Coordinate system: x=East, y=North, z=Up
+   */
+  function plunge_trend_to_vec(plunge_deg, trend_deg) {
+    const p = deg2rad(plunge_deg);
+    const t = deg2rad(trend_deg);
+    const z  = -Math.sin(p);
+    const xy =  Math.cos(p);
+    const x  =  Math.sin(t) * xy;
+    const y  =  Math.cos(t) * xy;
+    return [x, y, z];
+  }
+
+  /**
+   * Convert unit direction vector to [plunge, trend] in degrees.
+   */
+  function vec_to_plunge_trend(v) {
+    const plunge = rad2deg(-Math.asin(Math.max(-1, Math.min(1, v[2]))));
+    let trend    = rad2deg(Math.atan2(v[0], v[1]));
+    if (trend < 0) trend += 360;
+    return [plunge, trend];
+  }
+
+  /**
+   * Convert dip / dip-direction to pole [plunge, trend].
+   */
+  function dip_to_pole(dip_deg, dip_dir_deg) {
+    return [90 - dip_deg, (dip_dir_deg + 180) % 360];
+  }
+
+  /**
+   * Absolute angular difference between two bearings, handling wrap-around.
+   */
+  function angle_diff(a1, a2) {
+    return 180 - Math.abs(Math.abs(a1 - a2) - 180);
+  }
+
+  /**
+   * Ensure normal vector points downward (z < 0).
+   */
+  function flip_down(v) {
+    return v[2] > 0 ? [-v[0], -v[1], -v[2]] : [...v];
+  }
+
+  // ── kinematic checks ────────────────────────────────────────────────────────
+
+  /**
+   * Sliding failure check for a single normal vector.
+   * Returns true if the facet/point is potentially susceptible to planar sliding.
+   */
+  function check_sliding_single(nx, ny, nz,
+                                  slope_dip, slope_dip_dir,
+                                  friction_angle, lateral_limit) {
+    if (slope_dip <= friction_angle) return false;
+
+    // Ensure normal points into the slope (downward)
+    const n = nz > 0 ? [-nx, -ny, -nz] : [nx, ny, nz];
+    const nn = normalise(n);
+
+    const [pole_plunge, pole_trend] = vec_to_plunge_trend(nn);
+    const [sp_plunge, sp_trend]     = dip_to_pole(slope_dip, slope_dip_dir);
+
+    // 1) Lateral limit
+    if (angle_diff(pole_trend, sp_trend) > lateral_limit) return false;
+
+    // 2) Friction cone – plunge of pole must be ≤ (90° − φ)
+    if (pole_plunge > 90 - friction_angle) return false;
+
+    // 3) Daylight: dip vector must point toward the slope
+    const dip_pt = dip_to_pole(90 - pole_plunge, (pole_trend + 180) % 360);
+    const dip_vec = plunge_trend_to_vec(...dip_pt);
+    const slope_pole_vec = plunge_trend_to_vec(sp_plunge, sp_trend);
+    if (dot(slope_pole_vec, dip_vec) > 0) return false;   // not daylighting
+
+    return true;
+  }
+
+  /**
+   * Toppling failure check for a single normal vector.
+   * Returns true if the facet/point is potentially susceptible to flexural toppling.
+   */
+  function check_toppling_single(nx, ny, nz,
+                                   slope_dip, slope_dip_dir,
+                                   friction_angle, lateral_limit) {
+    if (slope_dip <= friction_angle) return false;
+
+    const n  = nz > 0 ? [-nx, -ny, -nz] : [nx, ny, nz];
+    const nn = normalise(n);
+    const [pole_plunge, pole_trend] = vec_to_plunge_trend(nn);
+
+    // 1) Lateral limit (opposite direction to slope dip)
+    const anti_dir = (slope_dip_dir + 180) % 360;
+    if (angle_diff(pole_trend, anti_dir) > lateral_limit) return false;
+
+    // 2) Unstable zone: plunge of pole must be ≤ slope_dip − friction_angle
+    const [sp_plunge] = dip_to_pole(slope_dip, slope_dip_dir);
+    const unstable_plunge = sp_plunge + friction_angle;  // = 90 − slope_dip + φ
+    const uz_vec = plunge_trend_to_vec(unstable_plunge, (slope_dip_dir + 180) % 360);
+    if (dot(uz_vec, nn) >= 0) return false;
+
+    return true;
+  }
+
+  /**
+   * Wedge failure check for a pair of normals (point cloud mode).
+   * Returns [plunge, trend] of line of intersection if wedge is unstable, else null.
+   */
+  function check_wedge_pair(n1, n2, p1, p2,
+                              slope_dip, slope_dip_dir,
+                              friction_angle, min_angle_diff) {
+    if (slope_dip <= friction_angle) return null;
+
+    const nn1 = normalise(n1.map((v, i) => n1[2] > 0 ? -v : v));
+    const nn2 = normalise(n2.map((v, i) => n2[2] > 0 ? -v : v));
+
+    // Angular difference between planes
+    const cos_ang = Math.abs(dot(nn1, nn2));
+    if (cos_ang > Math.cos(deg2rad(min_angle_diff))) return null;  // same joint set
+
+    // Line of intersection = cross product of normals
+    let e = cross(nn1, nn2);
+    if (norm(e) < 1e-10) return null;  // parallel planes
+    e = normalise(e);
+    if (e[2] > 0) e = e.map(v => -v);  // point downward
+
+    const [pt_plunge] = vec_to_plunge_trend(e);
+
+    // 1) Friction cone
+    if (pt_plunge < friction_angle) return null;
+
+    // 2) Daylight
+    const [sp_plunge, sp_trend] = dip_to_pole(slope_dip, slope_dip_dir);
+    const slope_pole_vec = plunge_trend_to_vec(sp_plunge, sp_trend);
+    if (dot(slope_pole_vec, e) > 0) return null;  // not daylighting
+
+    // 3) Converging (not diverging)
+    const d12 = normalise([p2[0]-p1[0], p2[1]-p1[1], p2[2]-p1[2]]);
+    if (dot(nn1, d12) <= 0) return null;  // diverging
+
+    return e;  // unstable
+  }
+
+  // ── batch analysis on arrays ────────────────────────────────────────────────
+
+  /**
+   * Run sliding analysis on an array of normals.
+   * @param {Float32Array|Array} normals  Flat [nx,ny,nz, nx,ny,nz, …]
+   * @param {Object} params
+   * @returns {Uint8Array} mask – 1 = sliding failure
+   */
+  function analyseSliding(normals, params) {
+    const n = normals.length / 3;
+    const mask = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      const nx = normals[i*3], ny = normals[i*3+1], nz = normals[i*3+2];
+      if (check_sliding_single(nx, ny, nz,
+            params.slope_dip, params.slope_dip_dir,
+            params.friction_angle, params.lateral_sliding)) {
+        mask[i] = 1;
+      }
+    }
+    return mask;
+  }
+
+  /**
+   * Run toppling analysis on an array of normals.
+   */
+  function analyseToppling(normals, params) {
+    const n = normals.length / 3;
+    const mask = new Uint8Array(n);
+    for (let i = 0; i < n; i++) {
+      const nx = normals[i*3], ny = normals[i*3+1], nz = normals[i*3+2];
+      if (check_toppling_single(nx, ny, nz,
+            params.slope_dip, params.slope_dip_dir,
+            params.friction_angle, params.lateral_toppling)) {
+        mask[i] = 1;
+      }
+    }
+    return mask;
+  }
+
+  /**
+   * Run wedge analysis on a point cloud using k-nearest neighbours.
+   * Returns array of midpoint positions [[x,y,z], …] of unstable wedge intersections.
+   */
+  function analyseWedge(points, normals, params) {
+    const k   = params.k_neighbours || 16;
+    const n   = points.length / 3;
+    const pts = [];
+
+    // Build simple kd-style brute-force search (fast enough for ≤ 50k pts in browser)
+    const knn = buildKNN(points, n, k);
+
+    const wedge_pts = [];
+    const seen = new Set();
+
+    for (let i = 0; i < n; i++) {
+      const neighbours = knn[i];
+      for (let j = 0; j < neighbours.length; j++) {
+        const jj = neighbours[j];
+        const key = i < jj ? `${i}_${jj}` : `${jj}_${i}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        const n1 = [normals[i*3], normals[i*3+1], normals[i*3+2]];
+        const n2 = [normals[jj*3], normals[jj*3+1], normals[jj*3+2]];
+        const p1 = [points[i*3],  points[i*3+1],  points[i*3+2]];
+        const p2 = [points[jj*3], points[jj*3+1], points[jj*3+2]];
+
+        const e = check_wedge_pair(n1, n2, p1, p2,
+                    params.slope_dip, params.slope_dip_dir,
+                    params.friction_angle, params.min_angle_diff);
+        if (e) {
+          // Store midpoint between the two points
+          wedge_pts.push([(p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2]);
+        }
+      }
+    }
+    return wedge_pts;
+  }
+
+  /** Very simple KNN via distance sorting (fine for demo-sized datasets). */
+  function buildKNN(points, n, k) {
+    const knn = [];
+    for (let i = 0; i < n; i++) {
+      const xi = points[i*3], yi = points[i*3+1], zi = points[i*3+2];
+      const dists = [];
+      for (let j = 0; j < n; j++) {
+        if (j === i) continue;
+        const dx = xi - points[j*3], dy = yi - points[j*3+1], dz = zi - points[j*3+2];
+        dists.push([dx*dx + dy*dy + dz*dz, j]);
+      }
+      dists.sort((a, b) => a[0] - b[0]);
+      knn.push(dists.slice(0, k).map(d => d[1]));
+    }
+    return knn;
+  }
+
+  // ── stereonet helpers ───────────────────────────────────────────────────────
+
+  /**
+   * Convert pole (plunge, trend) to equal-angle lower-hemisphere projection (x, y).
+   */
+  function poleToStereo(plunge_deg, trend_deg) {
+    const p = deg2rad(plunge_deg);
+    const t = deg2rad(trend_deg);
+    const r = Math.cos(p) / (1 + Math.sin(p));
+    return [r * Math.sin(t), r * Math.cos(t)];
+  }
+
+  /**
+   * Convert a normal vector to its lower-hemisphere stereonet projection.
+   */
+  function normalToStereo(nx, ny, nz) {
+    let v = [nx, ny, nz];
+    if (v[2] > 0) v = v.map(x => -x);
+    const vn = normalise(v);
+    const [plunge, trend] = vec_to_plunge_trend(vn);
+    return poleToStereo(plunge, trend);
+  }
+
+  // ── public API ──────────────────────────────────────────────────────────────
+  return {
+    analyseSliding,
+    analyseToppling,
+    analyseWedge,
+    normalToStereo,
+    poleToStereo,
+    dip_to_pole,
+    plunge_trend_to_vec,
+    deg2rad,
+    rad2deg,
+  };
+
+})();
+
+
+// ── las_loader.js ────────────────────────────────────────────────────
+/**
+ * LAS 1.0–1.4 binary parser for browser use.
+ *
+ * Public API
+ *   LASLoader.read(ArrayBuffer)
+ *     → { points: Float64Array (N×3), colors: Float32Array|null (N×3),
+ *          format: number, numPoints: number }
+ *
+ *   LASLoader.estimateNormals(Float32Array pts, k = 12)
+ *     → Float32Array normals (same length as pts)
+ *       Grid-accelerated PCA using a Jacobi eigensolver.
+ *
+ * LAZ (compressed) is detected immediately and rejected with a conversion guide.
+ * Supported point formats: 0–10.
+ * RGB extracted from formats 2, 3, 5, 7, 8, 10 (16-bit → normalised 0–1).
+ */
+const LASLoader = (() => {
+
+  // Byte offset of RGB triple within a point record, keyed by point format ID
+  const RGB_BYTE_OFFSET = { 2: 20, 3: 28, 5: 28, 7: 30, 8: 30, 10: 30 };
+
+  // ── Jacobi eigendecomposition for 3×3 symmetric matrix ─────────────────────
+  // Returns the eigenvector associated with the smallest eigenvalue (= surface normal).
+  function smallestEigenvec(m00, m01, m02, m11, m12, m22) {
+    const A = [m00, m01, m02,
+               m01, m11, m12,
+               m02, m12, m22];
+    const V = [1, 0, 0,
+               0, 1, 0,
+               0, 0, 1];
+
+    for (let iter = 0; iter < 20; iter++) {
+      // Find largest off-diagonal element
+      let maxV = 0, p = 0, q = 1;
+      for (let r = 0; r < 3; r++)
+        for (let c = r + 1; c < 3; c++) {
+          const v = Math.abs(A[r * 3 + c]);
+          if (v > maxV) { maxV = v; p = r; q = c; }
+        }
+      if (maxV < 1e-12) break;
+
+      // Givens rotation
+      const apq = A[p * 3 + q];
+      const tau  = (A[q * 3 + q] - A[p * 3 + p]) / (2 * apq);
+      const t    = (tau >= 0 ? 1 : -1) / (Math.abs(tau) + Math.sqrt(1 + tau * tau));
+      const c    = 1 / Math.sqrt(1 + t * t);
+      const s    = t * c;
+
+      const App = A[p * 3 + p], Aqq = A[q * 3 + q];
+      A[p * 3 + p] = c * c * App - 2 * s * c * apq + s * s * Aqq;
+      A[q * 3 + q] = s * s * App + 2 * s * c * apq + c * c * Aqq;
+      A[p * 3 + q] = A[q * 3 + p] = 0;
+
+      for (let r = 0; r < 3; r++) {
+        if (r === p || r === q) continue;
+        const Apr = A[p * 3 + r], Aqr = A[q * 3 + r];
+        A[p * 3 + r] = A[r * 3 + p] = c * Apr - s * Aqr;
+        A[q * 3 + r] = A[r * 3 + q] = s * Apr + c * Aqr;
+      }
+      for (let r = 0; r < 3; r++) {
+        const Vrp = V[r * 3 + p], Vrq = V[r * 3 + q];
+        V[r * 3 + p] = c * Vrp - s * Vrq;
+        V[r * 3 + q] = s * Vrp + c * Vrq;
+      }
+    }
+
+    // Column of V for smallest diagonal of A
+    let minI = 0;
+    if (A[4] < A[0]) minI = 1;
+    if (A[8] < A[minI * 3 + minI]) minI = 2;
+    return [V[minI], V[3 + minI], V[6 + minI]];
+  }
+
+  // ── Normal estimation (grid-accelerated PCA) ────────────────────────────────
+  function estimateNormals(pts, k) {
+    k = k || 12;
+    const n   = pts.length / 3;
+    const nrm = new Float32Array(n * 3);
+
+    // Bounding box
+    let x0 = Infinity,  y0 = Infinity,  z0 = Infinity;
+    let x1 = -Infinity, y1 = -Infinity, z1 = -Infinity;
+    for (let i = 0; i < n; i++) {
+      const x = pts[i*3], y = pts[i*3+1], z = pts[i*3+2];
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+      if (z < z0) z0 = z; if (z > z1) z1 = z;
+    }
+
+    const span = Math.max(x1 - x0, y1 - y0, z1 - z0, 1e-6);
+    const G    = Math.max(1, Math.ceil(Math.cbrt(n / 8)));
+    const cs   = span / G;
+
+    // Build voxel grid index
+    const grid = new Map();
+    for (let i = 0; i < n; i++) {
+      const gx = Math.min(Math.floor((pts[i*3]     - x0) / cs), G - 1);
+      const gy = Math.min(Math.floor((pts[i*3 + 1] - y0) / cs), G - 1);
+      const gz = Math.min(Math.floor((pts[i*3 + 2] - z0) / cs), G - 1);
+      const key = (gx * G + gy) * G + gz;
+      let cell = grid.get(key);
+      if (!cell) { cell = []; grid.set(key, cell); }
+      cell.push(i);
+    }
+
+    const cands = [];
+    for (let i = 0; i < n; i++) {
+      const px = pts[i*3], py = pts[i*3+1], pz = pts[i*3+2];
+      const gx = Math.min(Math.floor((px - x0) / cs), G - 1);
+      const gy = Math.min(Math.floor((py - y0) / cs), G - 1);
+      const gz = Math.min(Math.floor((pz - z0) / cs), G - 1);
+
+      // Collect points from 3×3×3 surrounding voxels
+      cands.length = 0;
+      for (let dx = -1; dx <= 1; dx++) {
+        const nx_ = gx + dx; if (nx_ < 0 || nx_ >= G) continue;
+        for (let dy = -1; dy <= 1; dy++) {
+          const ny_ = gy + dy; if (ny_ < 0 || ny_ >= G) continue;
+          for (let dz = -1; dz <= 1; dz++) {
+            const nz_ = gz + dz; if (nz_ < 0 || nz_ >= G) continue;
+            const cell = grid.get((nx_ * G + ny_) * G + nz_);
+            if (cell) for (const j of cell) if (j !== i) cands.push(j);
+          }
+        }
+      }
+
+      if (cands.length < 3) {
+        nrm[i*3] = 0; nrm[i*3+1] = 0; nrm[i*3+2] = 1;
+        continue;
+      }
+
+      // Sort by distance, keep k nearest
+      cands.sort((a, b) => {
+        const dxa = pts[a*3]-px, dya = pts[a*3+1]-py, dza = pts[a*3+2]-pz;
+        const dxb = pts[b*3]-px, dyb = pts[b*3+1]-py, dzb = pts[b*3+2]-pz;
+        return (dxa*dxa+dya*dya+dza*dza) - (dxb*dxb+dyb*dyb+dzb*dzb);
+      });
+      const nn = Math.min(k, cands.length);
+
+      // Centroid of neighbourhood
+      let cx = px, cy = py, cz = pz;
+      for (let j = 0; j < nn; j++) {
+        const idx = cands[j];
+        cx += pts[idx*3]; cy += pts[idx*3+1]; cz += pts[idx*3+2];
+      }
+      cx /= (nn + 1); cy /= (nn + 1); cz /= (nn + 1);
+
+      // 3×3 covariance (upper triangle)
+      let m00=0, m01=0, m02=0, m11=0, m12=0, m22=0;
+      for (let j = 0; j < nn; j++) {
+        const idx = cands[j];
+        const dx = pts[idx*3]-cx, dy = pts[idx*3+1]-cy, dz = pts[idx*3+2]-cz;
+        m00+=dx*dx; m01+=dx*dy; m02+=dx*dz;
+        m11+=dy*dy; m12+=dy*dz;
+        m22+=dz*dz;
+      }
+
+      const [ex, ey, ez] = smallestEigenvec(m00, m01, m02, m11, m12, m22);
+
+      // Orient normal downward (z ≤ 0) — lower hemisphere convention
+      const sign = ez > 0 ? -1 : 1;
+      nrm[i*3]     = ex * sign;
+      nrm[i*3 + 1] = ey * sign;
+      nrm[i*3 + 2] = ez * sign;
+    }
+    return nrm;
+  }
+
+  // ── LAS binary parser ───────────────────────────────────────────────────────
+  function read(buffer) {
+    const view = new DataView(buffer);
+
+    // Verify file signature
+    const sig = String.fromCharCode(
+      view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+    if (sig !== 'LASF')
+      throw new Error('Not a valid LAS file — wrong file signature.');
+
+    const vMaj   = view.getUint8(24);
+    const vMin   = view.getUint8(25);
+    const fmtRaw = view.getUint8(104);
+
+    // LAZ compressed format IDs have bit 7 set (≥ 128)
+    if (fmtRaw >= 128) throw new Error(
+      'LAZ (compressed) format detected.\n\n' +
+      'The browser cannot decompress LAZ files.\n' +
+      'Please re-export as uncompressed LAS:\n' +
+      '  • GeoSLAM Hub → Export → LAS (uncompressed)\n' +
+      '  • CloudCompare → File → Save As → LAS 1.3\n' +
+      '  • LAStools:  las2las -i file.laz -o file.las');
+
+    const format = fmtRaw;
+    const recLen = view.getUint16(105, true);
+    const offset = view.getUint32(96,  true);
+
+    // Point count: legacy 32-bit at byte 107; LAS 1.4 adds 64-bit at byte 247
+    let numPts = view.getUint32(107, true);
+    if (numPts === 0 && vMaj === 1 && vMin >= 4) {
+      const lo = view.getUint32(247, true);
+      const hi = view.getUint32(251, true);
+      if (hi > 0) throw new Error('Point cloud > 4 billion points — too large for browser.');
+      numPts = lo;
+    }
+    if (numPts === 0) throw new Error('LAS file contains 0 point records.');
+
+    const xScale = view.getFloat64(131, true), xOff = view.getFloat64(155, true);
+    const yScale = view.getFloat64(139, true), yOff = view.getFloat64(163, true);
+    const zScale = view.getFloat64(147, true), zOff = view.getFloat64(171, true);
+
+    if (buffer.byteLength < offset + numPts * recLen)
+      throw new Error('File appears truncated — cannot read all point records.');
+
+    const rgbOff = RGB_BYTE_OFFSET[format] !== undefined ? RGB_BYTE_OFFSET[format] : null;
+    const points = new Float64Array(numPts * 3);
+    const colors = rgbOff !== null ? new Float32Array(numPts * 3) : null;
+
+    let ptr = offset;
+    for (let i = 0; i < numPts; i++) {
+      points[i*3]     = view.getInt32(ptr,     true) * xScale + xOff;
+      points[i*3 + 1] = view.getInt32(ptr + 4, true) * yScale + yOff;
+      points[i*3 + 2] = view.getInt32(ptr + 8, true) * zScale + zOff;
+
+      if (rgbOff !== null) {
+        colors[i*3]     = view.getUint16(ptr + rgbOff,     true) / 65535;
+        colors[i*3 + 1] = view.getUint16(ptr + rgbOff + 2, true) / 65535;
+        colors[i*3 + 2] = view.getUint16(ptr + rgbOff + 4, true) / 65535;
+      }
+
+      ptr += recLen;
+    }
+
+    return { points, colors, format, numPoints: numPts };
+  }
+
+  // ── LAZ decompressor via laz-perf WASM ──────────────────────────────────────
+  // `createLazPerf` global is loaded from the CDN script tag in index.html.
+  // The module is initialised once and reused across calls.
+  let _lazPerfPromise = null;
+
+  function _getLazPerf() {
+    if (!_lazPerfPromise) {
+      if (typeof createLazPerf === 'undefined')
+        throw new Error(
+          'laz-perf WASM library not available. ' +
+          'Ensure the CDN script tag is present in index.html.'
+        );
+      _lazPerfPromise = createLazPerf();
+    }
+    return _lazPerfPromise;
+  }
+
+  /**
+   * Decompress a LAZ file using laz-perf WASM.
+   * Returns the same shape as read(): { points, colors, format, numPoints }.
+   */
+  async function readLAZ(buffer) {
+    const lp   = await _getLazPerf();
+    const view = new DataView(buffer);
+
+    const vMaj   = view.getUint8(24);
+    const vMin   = view.getUint8(25);
+    const fmtRaw = view.getUint8(104);
+    const format = fmtRaw & 0x7F;   // strip LAZ compression bit
+
+    let numPts = view.getUint32(107, true);
+    if (numPts === 0 && vMaj === 1 && vMin >= 4) {
+      const lo = view.getUint32(247, true);
+      const hi = view.getUint32(251, true);
+      if (hi > 0) throw new Error('Point cloud > 4 billion points — too large for browser.');
+      numPts = lo;
+    }
+    if (numPts === 0) throw new Error('LAZ file contains 0 points.');
+
+    const xScale = view.getFloat64(131, true), xOff = view.getFloat64(155, true);
+    const yScale = view.getFloat64(139, true), yOff = view.getFloat64(163, true);
+    const zScale = view.getFloat64(147, true), zOff = view.getFloat64(171, true);
+
+    const rgbOff = RGB_BYTE_OFFSET[format] !== undefined ? RGB_BYTE_OFFSET[format] : null;
+
+    // Copy entire file to WASM heap
+    const filePtr = lp._malloc(buffer.byteLength);
+    lp.HEAPU8.set(new Uint8Array(buffer), filePtr);
+
+    const laszip   = new lp.LASZip();
+    laszip.open(filePtr, buffer.byteLength);
+
+    const pointLen = laszip.getPointLength();
+    const destPtr  = lp._malloc(pointLen);
+    const heapView = new DataView(lp.HEAPU8.buffer);
+
+    const points = new Float64Array(numPts * 3);
+    const colors = rgbOff !== null ? new Float32Array(numPts * 3) : null;
+
+    for (let i = 0; i < numPts; i++) {
+      laszip.getPoint(destPtr);
+      points[i*3]     = heapView.getInt32(destPtr,     true) * xScale + xOff;
+      points[i*3 + 1] = heapView.getInt32(destPtr + 4, true) * yScale + yOff;
+      points[i*3 + 2] = heapView.getInt32(destPtr + 8, true) * zScale + zOff;
+
+      if (rgbOff !== null) {
+        colors[i*3]     = heapView.getUint16(destPtr + rgbOff,     true) / 65535;
+        colors[i*3 + 1] = heapView.getUint16(destPtr + rgbOff + 2, true) / 65535;
+        colors[i*3 + 2] = heapView.getUint16(destPtr + rgbOff + 4, true) / 65535;
+      }
+    }
+
+    laszip.delete();
+    lp._free(destPtr);
+    lp._free(filePtr);
+
+    return { points, colors, format, numPoints: numPts };
+  }
+
+  return { read, readLAZ, estimateNormals };
+})();
+
+
+// ── app.js ───────────────────────────────────────────────────────────
+/**
+ * FAA Web App — Main Application
+ * 3-D viewer powered by Three.js  |  Analysis by faa_core.js
+ * LAS/LAZ parser + normal estimation by las_loader.js
+ */
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const MAX_DISPLAY_PTS  = 300000;   // max points rendered in 3-D view
+const MAX_ANALYSIS_PTS = 500000;   // max points used in FAA analysis (LAS sub-sampling)
+
+// ── Three.js globals ──────────────────────────────────────────────────────────
+let scene, camera, renderer, controls;
+let baseCloud = null, slidingCloud = null, toppingCloud = null, wedgeCloud = null;
+
+// ── App state ─────────────────────────────────────────────────────────────────
+let pointPositions = null;   // Float32Array, flat xyz — used for analysis
+let pointNormals   = null;   // Float32Array, flat xyz
+let pointColors    = null;   // Float32Array, flat rgb [0–1], or null if no colour data
+let dataLoaded     = false;
+let resultCounts   = { sliding: 0, toppling: 0, wedge: 0 };
+
+// Persisted analysis masks — kept across individual runAnalysis calls so
+// updateStereonet always receives the latest result for each mode.
+let currentSlidingMask  = null;
+let currentTopplingMask = null;
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initThree();
+  initStereonet();
+  bindUI();
+  loadSampleData();
+  animate();
+});
+
+// ── Three.js setup ────────────────────────────────────────────────────────────
+function initThree() {
+  const wrap   = document.getElementById('viewer3d');
+  const canvas = document.getElementById('canvas3d');
+
+  scene    = new THREE.Scene();
+  scene.background = new THREE.Color(0x0d0d1e);
+
+  camera   = new THREE.PerspectiveCamera(55, wrap.clientWidth / wrap.clientHeight, 0.01, 10000);
+  camera.position.set(30, -50, 30);
+  camera.up.set(0, 0, 1);
+
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+
+  controls = new THREE.OrbitControls(camera, canvas);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.08;
+
+  scene.add(new THREE.AmbientLight(0xaaaacc, 0.8));
+  const dl = new THREE.DirectionalLight(0xffffff, 0.6);
+  dl.position.set(1, -1, 2);
+  scene.add(dl);
+
+  const grid = new THREE.GridHelper(100, 20, 0x223344, 0x1a2233);
+  grid.rotation.x = Math.PI / 2;
+  scene.add(grid);
+
+  window.addEventListener('resize', onResize);
+}
+
+function onResize() {
+  const wrap = document.getElementById('viewer3d');
+  if (!wrap) return;
+  camera.aspect = wrap.clientWidth / wrap.clientHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(wrap.clientWidth, wrap.clientHeight);
+}
+
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+
+// ── Point cloud helpers ───────────────────────────────────────────────────────
+/**
+ * Build a Three.js Points object.
+ * colorOrColors: hex number for flat colour, or Float32Array for per-vertex RGB [0–1].
+ */
+function makePointCloud(positions, colorOrColors, size) {
+  size = size || 0.08;
+  const geo  = new THREE.BufferGeometry();
+  const pos32 = positions instanceof Float32Array ? positions : new Float32Array(positions);
+  geo.setAttribute('position', new THREE.BufferAttribute(pos32, 3));
+
+  let colArr;
+  if (colorOrColors instanceof Float32Array) {
+    colArr = colorOrColors;
+  } else {
+    const c = new THREE.Color(colorOrColors);
+    colArr  = new Float32Array(pos32.length);
+    for (let i = 0, n3 = pos32.length; i < n3; i += 3) {
+      colArr[i] = c.r; colArr[i+1] = c.g; colArr[i+2] = c.b;
+    }
+  }
+  geo.setAttribute('color', new THREE.BufferAttribute(colArr, 3));
+
+  const mat = new THREE.PointsMaterial({ size, vertexColors: true, sizeAttenuation: true });
+  return new THREE.Points(geo, mat);
+}
+
+function addOrReplaceCloud(existingRef, positions, colorOrColors, size) {
+  if (existingRef && existingRef.parent) scene.remove(existingRef);
+  if (!positions || positions.length === 0) return null;
+  const cloud = makePointCloud(positions, colorOrColors, size);
+  scene.add(cloud);
+  return cloud;
+}
+
+function clearResultClouds() {
+  [slidingCloud, toppingCloud, wedgeCloud].forEach(c => {
+    if (c && c.parent) scene.remove(c);
+  });
+  slidingCloud = toppingCloud = wedgeCloud = null;
+}
+
+function centreCamera(positions) {
+  let sx = 0, sy = 0, sz = 0;
+  let mn = [Infinity,Infinity,Infinity], mx = [-Infinity,-Infinity,-Infinity];
+  const n = positions.length / 3;
+  for (let i = 0; i < n; i++) {
+    const x = positions[i*3], y = positions[i*3+1], z = positions[i*3+2];
+    sx += x; sy += y; sz += z;
+    mn[0] = Math.min(mn[0], x); mn[1] = Math.min(mn[1], y); mn[2] = Math.min(mn[2], z);
+    mx[0] = Math.max(mx[0], x); mx[1] = Math.max(mx[1], y); mx[2] = Math.max(mx[2], z);
+  }
+  const cx = sx/n, cy = sy/n, cz = sz/n;
+  const span = Math.max(mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2]);
+  controls.target.set(cx, cy, cz);
+  camera.position.set(cx + span, cy - span, cz + span * 0.5);
+  camera.lookAt(cx, cy, cz);
+}
+
+// ── Sample data generator ─────────────────────────────────────────────────────
+function loadSampleData() {
+  setStatus('Generating sample slope…');
+
+  const N_SLOPE = 3000, N_J1 = 600, N_J2 = 400, N_J3 = 300;
+  const total   = N_SLOPE + N_J1 + N_J2 + N_J3;
+
+  pointPositions = new Float32Array(total * 3);
+  pointNormals   = new Float32Array(total * 3);
+  pointColors    = null;
+
+  let off = 0;
+
+  function addJoint(n, dip, dip_dir, xr, yr, zr) {
+    const dr = dip * Math.PI / 180, tr = dip_dir * Math.PI / 180;
+    const nx = -Math.sin(dr)*Math.sin(tr);
+    const ny = -Math.sin(dr)*Math.cos(tr);
+    const nz =  Math.cos(dr);
+    for (let i = 0; i < n; i++) {
+      const u = xr[0] + Math.random()*(xr[1]-xr[0]);
+      const v = yr[0] + Math.random()*(yr[1]-yr[0]);
+      pointPositions[off]   = u;
+      pointPositions[off+1] = v;
+      pointPositions[off+2] = zr[0] + Math.random()*(zr[1]-zr[0])
+                              + Math.tan(dr)*(u*Math.sin(tr)+v*Math.cos(tr))
+                              + (Math.random()-.5)*.1;
+      const rn = .05, mag = Math.sqrt((nx+rn)**2+(ny+rn)**2+(nz)**2);
+      pointNormals[off]   = (nx+(Math.random()-.5)*rn)/mag;
+      pointNormals[off+1] = (ny+(Math.random()-.5)*rn)/mag;
+      pointNormals[off+2] = (nz+(Math.random()-.5)*rn)/mag;
+      off += 3;
+    }
+  }
+
+  // Background slope (70° / 140°)
+  {
+    const dr = 70*Math.PI/180, tr = 140*Math.PI/180;
+    const nx = -Math.sin(dr)*Math.sin(tr);
+    const ny = -Math.sin(dr)*Math.cos(tr);
+    const nz =  Math.cos(dr);
+    for (let i = 0; i < N_SLOPE; i++) {
+      const u = (Math.random()-.5)*20, v = Math.random()*20;
+      pointPositions[off]   = u*Math.cos(tr) + v*Math.sin(tr)*Math.cos(dr);
+      pointPositions[off+1] = -u*Math.sin(tr)+ v*Math.cos(tr)*Math.cos(dr);
+      pointPositions[off+2] = v*Math.sin(dr)+(Math.random()-.5)*.1;
+      pointNormals[off]   = nx + (Math.random()-.5)*.05;
+      pointNormals[off+1] = ny + (Math.random()-.5)*.05;
+      pointNormals[off+2] = nz + (Math.random()-.5)*.05;
+      const mag = Math.sqrt(pointNormals[off]**2+pointNormals[off+1]**2+pointNormals[off+2]**2);
+      pointNormals[off]/=mag; pointNormals[off+1]/=mag; pointNormals[off+2]/=mag;
+      off += 3;
+    }
+  }
+
+  addJoint(N_J1, 27, 144, [-8,8], [2,18], [0,15]);   // J1 – sliding
+  addJoint(N_J2, 87,   8, [-6,6], [4,16], [0,15]);   // J2 – toppling
+  addJoint(N_J3, 81, 254, [-5,5], [6,14], [0,15]);   // J3 – wedge partner
+
+  baseCloud = addOrReplaceCloud(baseCloud, pointPositions, 0xaaaacc, 0.07);
+  centreCamera(pointPositions);
+  dataLoaded = true;
+
+  document.getElementById('fileInfo').textContent =
+    `Sample slope  |  ${total.toLocaleString()} points`;
+  setStatus('Sample data loaded. Set parameters and run analysis.');
+  updateStereonet();
+}
+
+// ── File loading ──────────────────────────────────────────────────────────────
+function handleFileLoad(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  setStatus(`Loading ${file.name}…`);
+  showProgress(true);
+
+  const reader = new FileReader();
+
+  if (ext === 'xyz' || ext === 'pts' || ext === 'xyzn' || ext === 'xyzrgb') {
+    reader.onload = e => {
+      try { loadXYZ(e.target.result, file.name); }
+      catch (err) { setStatus('Error: ' + err.message); }
+      showProgress(false);
+    };
+    reader.readAsText(file);
+
+  } else if (ext === 'ply') {
+    reader.onload = e => {
+      try { loadPLY(e.target.result, file.name); }
+      catch (err) { setStatus('Error: ' + err.message); }
+      showProgress(false);
+    };
+    reader.readAsArrayBuffer(file);
+
+  } else if (ext === 'obj') {
+    reader.onload = e => {
+      try { loadOBJ(e.target.result, file.name); }
+      catch (err) { setStatus('Error: ' + err.message); }
+      showProgress(false);
+    };
+    reader.readAsText(file);
+
+  } else if (ext === 'las' || ext === 'laz') {
+    reader.onload = e => {
+      // showProgress(false) is called inside loadLAS after async normal estimation
+      loadLAS(e.target.result, file.name);
+    };
+    reader.readAsArrayBuffer(file);
+
+  } else {
+    setStatus(`Format .${ext} not supported. Use LAS, PLY, OBJ, XYZ, or PTS.`);
+    showProgress(false);
+  }
+}
+
+// ── LAS/LAZ loader ────────────────────────────────────────────────────────────
+async function loadLAS(buffer, name) {
+  // Detect LAZ by the compression bit (format ID ≥ 128) in the header
+  const fmtByte = new DataView(buffer).getUint8(104);
+  const isLAZ   = fmtByte >= 128;
+
+  let parsed;
+  try {
+    if (isLAZ) {
+      setStatus('Initialising LAZ decompressor (WASM)…');
+      parsed = await LASLoader.readLAZ(buffer);
+    } else {
+      parsed = LASLoader.read(buffer);
+    }
+  } catch (err) {
+    setStatus((isLAZ ? 'LAZ' : 'LAS') + ' error: ' + err.message);
+    console.error(err);
+    showProgress(false);
+    return;
+  }
+
+  const { points: pts64, colors: lasColors, numPoints } = parsed;
+
+  // Centre around centroid so Float32 precision is adequate for display
+  let cx = 0, cy = 0, cz = 0;
+  for (let i = 0; i < numPoints; i++) {
+    cx += pts64[i*3]; cy += pts64[i*3+1]; cz += pts64[i*3+2];
+  }
+  cx /= numPoints; cy /= numPoints; cz /= numPoints;
+
+  // Sub-sample if cloud is too large for browser analysis
+  let n       = numPoints;
+  let indices = null;
+  if (numPoints > MAX_ANALYSIS_PTS) {
+    setStatus(`${numPoints.toLocaleString()} pts — sub-sampling to ${MAX_ANALYSIS_PTS.toLocaleString()} for analysis…`);
+    indices = uniformSubsample(numPoints, MAX_ANALYSIS_PTS);
+    n = MAX_ANALYSIS_PTS;
+  }
+
+  const pts32 = new Float32Array(n * 3);
+  const col32 = lasColors ? new Float32Array(n * 3) : null;
+
+  for (let i = 0; i < n; i++) {
+    const src     = indices ? indices[i] : i;
+    pts32[i*3]    = pts64[src*3]     - cx;
+    pts32[i*3+1]  = pts64[src*3 + 1] - cy;
+    pts32[i*3+2]  = pts64[src*3 + 2] - cz;
+    if (col32 && lasColors) {
+      col32[i*3]   = lasColors[src*3];
+      col32[i*3+1] = lasColors[src*3+1];
+      col32[i*3+2] = lasColors[src*3+2];
+    }
+  }
+
+  setStatus(`Estimating normals for ${n.toLocaleString()} pts… (may take a moment)`);
+
+  // Defer heavy computation to keep the UI responsive
+  setTimeout(() => {
+    try {
+      const nrm = LASLoader.estimateNormals(pts32);
+      pointPositions = pts32;
+      pointNormals   = nrm;
+      pointColors    = col32;
+      const label = numPoints > MAX_ANALYSIS_PTS
+        ? `${name}  |  ${numPoints.toLocaleString()} pts (sub-sampled to ${n.toLocaleString()})`
+        : `${name}  |  ${numPoints.toLocaleString()} pts`;
+      finaliseLoad(label);
+    } catch (err) {
+      setStatus('Normal estimation failed: ' + err.message);
+      console.error(err);
+    }
+    showProgress(false);
+  }, 30);
+}
+
+// ── XYZ / PTS / XYZN loader ───────────────────────────────────────────────────
+function loadXYZ(text, name) {
+  const lines = text.trim().split('\n').filter(l => l.trim() && !l.startsWith('#'));
+  const pts = [], nrm = [];
+  for (const line of lines) {
+    const parts = line.trim().split(/[\s,]+/);
+    if (parts.length < 3) continue;
+    pts.push(+parts[0], +parts[1], +parts[2]);
+    if (parts.length >= 6) nrm.push(+parts[3], +parts[4], +parts[5]);
+  }
+  pointPositions = new Float32Array(pts);
+  pointNormals   = nrm.length === pts.length
+    ? new Float32Array(nrm)
+    : LASLoader.estimateNormals(pointPositions);
+  pointColors = null;
+  finaliseLoad(name);
+}
+
+// ── OBJ loader ────────────────────────────────────────────────────────────────
+function loadOBJ(text, name) {
+  const verts = [], normals_raw = [];
+  for (const line of text.split('\n')) {
+    const p = line.trim().split(/\s+/);
+    if (p[0] === 'v')  verts.push(+p[1], +p[2], +p[3]);
+    if (p[0] === 'vn') normals_raw.push(+p[1], +p[2], +p[3]);
+  }
+  pointPositions = new Float32Array(verts);
+  pointNormals   = normals_raw.length
+    ? new Float32Array(normals_raw)
+    : LASLoader.estimateNormals(pointPositions);
+  pointColors = null;
+  finaliseLoad(name);
+}
+
+// ── PLY loader (ASCII) ────────────────────────────────────────────────────────
+function loadPLY(buffer, name) {
+  const text = new TextDecoder().decode(buffer);
+  if (!text.startsWith('ply')) { setStatus('Invalid PLY file.'); return; }
+
+  const lines = text.split('\n');
+  let headerEnd = 0, numVertices = 0;
+  const propOrder = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i].trim();
+    if (l.startsWith('element vertex')) numVertices = parseInt(l.split(' ')[2]);
+    if (l.startsWith('property') && !l.includes('list')) propOrder.push(l.split(' ')[2]);
+    if (l === 'end_header') { headerEnd = i + 1; break; }
+  }
+
+  const xi = propOrder.indexOf('x'),  yi = propOrder.indexOf('y'),  zi = propOrder.indexOf('z');
+  const nxi = propOrder.indexOf('nx'), nyi = propOrder.indexOf('ny'), nzi = propOrder.indexOf('nz');
+  const ri  = propOrder.indexOf('red'), gi = propOrder.indexOf('green'), bi = propOrder.indexOf('blue');
+  const hasNormals = nxi >= 0;
+  const hasColors  = ri >= 0;
+
+  const pts = [], nrm = [], col = [];
+  for (let i = headerEnd; i < headerEnd + numVertices; i++) {
+    const p = lines[i].trim().split(/\s+/);
+    if (p.length <= zi) continue;
+    pts.push(+p[xi], +p[yi], +p[zi]);
+    if (hasNormals) nrm.push(+p[nxi], +p[nyi], +p[nzi]);
+    if (hasColors)  col.push(+p[ri]/255, +p[gi]/255, +p[bi]/255);
+  }
+
+  pointPositions = new Float32Array(pts);
+  pointNormals   = hasNormals ? new Float32Array(nrm) : LASLoader.estimateNormals(pointPositions);
+  pointColors    = hasColors  ? new Float32Array(col) : null;
+  finaliseLoad(name);
+}
+
+// ── Finalise load (common for all formats) ────────────────────────────────────
+function finaliseLoad(label) {
+  clearResultClouds();
+  currentSlidingMask  = null;
+  currentTopplingMask = null;
+  resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
+  updateCounts();
+
+  if (baseCloud && baseCloud.parent) scene.remove(baseCloud);
+
+  const n = pointPositions.length / 3;
+
+  // Sub-sample display if cloud is large (analysis always uses full pointPositions)
+  let dispPos = pointPositions;
+  let dispCol = pointColors;
+  if (n > MAX_DISPLAY_PTS) {
+    const idx = uniformSubsample(n, MAX_DISPLAY_PTS);
+    dispPos = new Float32Array(MAX_DISPLAY_PTS * 3);
+    if (pointColors) dispCol = new Float32Array(MAX_DISPLAY_PTS * 3);
+    for (let i = 0; i < MAX_DISPLAY_PTS; i++) {
+      const s = idx[i];
+      dispPos[i*3]   = pointPositions[s*3];
+      dispPos[i*3+1] = pointPositions[s*3+1];
+      dispPos[i*3+2] = pointPositions[s*3+2];
+      if (dispCol && pointColors) {
+        dispCol[i*3]   = pointColors[s*3];
+        dispCol[i*3+1] = pointColors[s*3+1];
+        dispCol[i*3+2] = pointColors[s*3+2];
+      }
+    }
+  }
+
+  baseCloud = addOrReplaceCloud(null, dispPos, dispCol || 0xaaaacc, 0.07);
+  centreCamera(pointPositions);
+  dataLoaded = true;
+
+  document.getElementById('fileInfo').textContent = label;
+  setStatus(`Loaded ${label.split('|')[0].trim()}. Ready for analysis.`);
+  updateStereonet();
+}
+
+// ── Helper: uniform random subsample ─────────────────────────────────────────
+function uniformSubsample(n, k) {
+  const step = n / k;
+  const idx  = new Uint32Array(k);
+  for (let i = 0; i < k; i++) {
+    idx[i] = Math.min(Math.floor(i * step + Math.random() * step), n - 1);
+  }
+  return idx;
+}
+
+// ── Analysis ──────────────────────────────────────────────────────────────────
+function getParams() {
+  return {
+    slope_dip:        +document.getElementById('slope_dip').value,
+    slope_dip_dir:    +document.getElementById('slope_dip_dir').value,
+    friction_angle:   +document.getElementById('friction_angle').value,
+    lateral_sliding:  +document.getElementById('lateral_sliding').value,
+    lateral_toppling: +document.getElementById('lateral_toppling').value,
+    min_angle_diff:   +document.getElementById('min_angle_diff').value,
+    k_neighbours:     +document.getElementById('k_neighbours').value,
+  };
+}
+
+function runAnalysis(mode) {
+  if (!dataLoaded) { setStatus('Load a file first.'); return; }
+  showProgress(true);
+  setStatus(`Running ${mode} analysis…`);
+
+  setTimeout(() => {
+    try {
+      const params = getParams();
+      let mask, resultPts;
+
+      if (mode === 'sliding') {
+        mask      = FAA.analyseSliding(pointNormals, params);
+        resultPts = maskedPositions(pointPositions, mask);
+        slidingCloud = addOrReplaceCloud(slidingCloud, resultPts, 0xff3333, 0.10);
+        resultCounts.sliding  = countOnes(mask);
+        currentSlidingMask    = mask;
+
+      } else if (mode === 'toppling') {
+        mask      = FAA.analyseToppling(pointNormals, params);
+        resultPts = maskedPositions(pointPositions, mask);
+        toppingCloud = addOrReplaceCloud(toppingCloud, resultPts, 0x33cc55, 0.10);
+        resultCounts.toppling  = countOnes(mask);
+        currentTopplingMask    = mask;
+
+      } else if (mode === 'wedge') {
+        // Limit to 5k points for browser KNN performance
+        const limit   = Math.min(pointPositions.length / 3, 5000);
+        const pts_sub = pointPositions.slice(0, limit * 3);
+        const nrm_sub = pointNormals.slice(0, limit * 3);
+        const wpts    = FAA.analyseWedge(pts_sub, nrm_sub, params);
+        const flat    = new Float32Array(wpts.flat());
+        wedgeCloud    = addOrReplaceCloud(wedgeCloud, flat, 0x22ccff, 0.12);
+        resultCounts.wedge = wpts.length;
+      }
+
+      updateCounts();
+      // Always pass both masks so running wedge or a second analysis
+      // doesn't erase colours from the previous mode.
+      updateStereonet(currentSlidingMask, currentTopplingMask);
+      setStatus(`${capitalize(mode)} analysis done — ${resultCounts[mode].toLocaleString()} potentially unstable elements.`);
+    } catch (e) {
+      setStatus('Analysis error: ' + e.message);
+      console.error(e);
+    }
+    showProgress(false);
+  }, 30);
+}
+
+function runAll() {
+  ['sliding', 'toppling', 'wedge'].forEach((m, i) => {
+    setTimeout(() => runAnalysis(m), i * 80);
+  });
+}
+
+function maskedPositions(positions, mask) {
+  const n = positions.length / 3;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    if (mask[i]) out.push(positions[i*3], positions[i*3+1], positions[i*3+2]);
+  }
+  return new Float32Array(out);
+}
+
+function countOnes(mask) {
+  let c = 0;
+  for (let i = 0; i < mask.length; i++) c += mask[i];
+  return c;
+}
+
+// ── Stereonet ─────────────────────────────────────────────────────────────────
+let stereoCtx = null;
+
+function initStereonet() {
+  const canvas = document.getElementById('stereoCanvas');
+  stereoCtx = canvas.getContext('2d');
+  resizeStereonet();
+  window.addEventListener('resize', resizeStereonet);
+}
+
+function resizeStereonet() {
+  const canvas = document.getElementById('stereoCanvas');
+  const wrap   = canvas.parentElement;
+  canvas.width  = wrap.clientWidth  * window.devicePixelRatio;
+  canvas.height = wrap.clientHeight * window.devicePixelRatio;
+  canvas.style.width  = wrap.clientWidth  + 'px';
+  canvas.style.height = wrap.clientHeight + 'px';
+  updateStereonet();
+}
+
+function updateStereonet(slidingMask, toppling_mask) {
+  if (!stereoCtx) return;
+  const W = stereoCtx.canvas.width, H = stereoCtx.canvas.height;
+  const cx = W / 2, cy = H / 2;
+  const R  = Math.min(W, H) * 0.42;
+
+  stereoCtx.clearRect(0, 0, W, H);
+  stereoCtx.fillStyle = '#0d0d1e';
+  stereoCtx.fillRect(0, 0, W, H);
+
+  stereoCtx.beginPath();
+  stereoCtx.arc(cx, cy, R, 0, Math.PI * 2);
+  stereoCtx.strokeStyle = '#aaaacc';
+  stereoCtx.lineWidth   = 1.5 * window.devicePixelRatio;
+  stereoCtx.stroke();
+
+  const fs = 11 * window.devicePixelRatio;
+  stereoCtx.fillStyle = '#aaaacc';
+  stereoCtx.font      = `${fs}px sans-serif`;
+  stereoCtx.textAlign = 'center';
+  stereoCtx.textBaseline = 'middle';
+  stereoCtx.fillText('N', cx, cy - R - 14*window.devicePixelRatio);
+  stereoCtx.fillText('S', cx, cy + R + 14*window.devicePixelRatio);
+  stereoCtx.fillText('E', cx + R + 14*window.devicePixelRatio, cy);
+  stereoCtx.fillText('W', cx - R - 14*window.devicePixelRatio, cy);
+
+  if (!dataLoaded || !pointNormals) return;
+
+  const n    = pointNormals.length / 3;
+  const step = Math.max(1, Math.floor(n / 4000));
+  const r1   = 1.8 * window.devicePixelRatio;
+
+  // Pass 1: grey background dots (every step-th point, skip already-coloured ones)
+  stereoCtx.fillStyle = 'rgba(170,170,204,0.12)';
+  for (let i = 0; i < n; i += step) {
+    if (slidingMask?.[i] || toppling_mask?.[i]) continue;
+    const [sx, sy] = FAA.normalToStereo(
+      pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+    stereoCtx.beginPath();
+    stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+    stereoCtx.fill();
+  }
+
+  // Pass 2: ALL sliding hits (red) — no stepping, so no results are missed
+  if (slidingMask) {
+    stereoCtx.fillStyle = 'rgba(255,51,51,0.7)';
+    for (let i = 0; i < n; i++) {
+      if (!slidingMask[i]) continue;
+      const [sx, sy] = FAA.normalToStereo(
+        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      stereoCtx.beginPath();
+      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.fill();
+    }
+  }
+
+  // Pass 3: ALL toppling hits (green) — no stepping
+  if (toppling_mask) {
+    stereoCtx.fillStyle = 'rgba(51,204,85,0.7)';
+    for (let i = 0; i < n; i++) {
+      if (!toppling_mask[i]) continue;
+      const [sx, sy] = FAA.normalToStereo(
+        pointNormals[i*3], pointNormals[i*3+1], pointNormals[i*3+2]);
+      stereoCtx.beginPath();
+      stereoCtx.arc(cx + sx * R, cy - sy * R, r1, 0, Math.PI * 2);
+      stereoCtx.fill();
+    }
+  }
+
+  drawSlopeMarker(cx, cy, R);
+
+  stereoCtx.fillStyle = '#aaaacc';
+  stereoCtx.font      = `${fs}px sans-serif`;
+  stereoCtx.fillText('Lower Hemisphere — Equal Angle', cx, 14 * window.devicePixelRatio);
+}
+
+function drawSlopeMarker(cx, cy, R) {
+  const dip = +document.getElementById('slope_dip').value;
+  const dir = +document.getElementById('slope_dip_dir').value;
+  const [sp, st] = FAA.dip_to_pole(dip, dir);
+  const [sx, sy] = FAA.poleToStereo(sp, st);
+  const px = cx + sx * R, py = cy - sy * R;
+
+  stereoCtx.beginPath();
+  stereoCtx.arc(px, py, 6 * window.devicePixelRatio, 0, Math.PI * 2);
+  stereoCtx.strokeStyle = '#ffffff';
+  stereoCtx.lineWidth   = 2 * window.devicePixelRatio;
+  stereoCtx.stroke();
+
+  stereoCtx.fillStyle = '#ffffff';
+  stereoCtx.font      = `${9 * window.devicePixelRatio}px sans-serif`;
+  stereoCtx.fillText('Slope', px + 10 * window.devicePixelRatio, py);
+}
+
+// ── UI bindings ───────────────────────────────────────────────────────────────
+function bindUI() {
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById(btn.dataset.tab).classList.add('active');
+      if (btn.dataset.tab === 'stereo') setTimeout(resizeStereonet, 50);
+      else setTimeout(onResize, 50);
+    });
+  });
+
+  const dz = document.getElementById('dropzone');
+  const fi = document.getElementById('fileInput');
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    if (e.dataTransfer.files[0]) handleFileLoad(e.dataTransfer.files[0]);
+  });
+  fi.addEventListener('change', () => { if (fi.files[0]) handleFileLoad(fi.files[0]); });
+
+  document.getElementById('btnSliding') .addEventListener('click', () => runAnalysis('sliding'));
+  document.getElementById('btnToppling').addEventListener('click', () => runAnalysis('toppling'));
+  document.getElementById('btnWedge')   .addEventListener('click', () => runAnalysis('wedge'));
+  document.getElementById('btnAll')     .addEventListener('click', runAll);
+
+  [
+    ['friction_angle',   'friction_angle_val'],
+    ['lateral_sliding',  'lateral_sliding_val'],
+    ['lateral_toppling', 'lateral_toppling_val'],
+    ['min_angle_diff',   'min_angle_diff_val'],
+  ].forEach(([id, vid]) => {
+    const el  = document.getElementById(id);
+    const val = document.getElementById(vid);
+    if (!el || !val) return;
+    el.addEventListener('input', () => { val.textContent = el.value + '°'; updateStereonet(); });
+  });
+
+  document.getElementById('chk_sliding') .addEventListener('change', e => toggleCloud(slidingCloud,  e.target.checked));
+  document.getElementById('chk_toppling').addEventListener('change', e => toggleCloud(toppingCloud,  e.target.checked));
+  document.getElementById('chk_wedge')   .addEventListener('change', e => toggleCloud(wedgeCloud,    e.target.checked));
+
+  document.getElementById('btnExportSample').addEventListener('click', exportResultsCSV);
+}
+
+function toggleCloud(cloud, visible) {
+  if (cloud) cloud.visible = visible;
+}
+
+function updateCounts() {
+  document.getElementById('count_sliding') .textContent = resultCounts.sliding  ? `${resultCounts.sliding.toLocaleString()} pts`  : '—';
+  document.getElementById('count_toppling').textContent = resultCounts.toppling ? `${resultCounts.toppling.toLocaleString()} pts` : '—';
+  document.getElementById('count_wedge')   .textContent = resultCounts.wedge    ? `${resultCounts.wedge.toLocaleString()} pts`    : '—';
+}
+
+// ── Export ────────────────────────────────────────────────────────────────────
+function exportResultsCSV() {
+  if (!dataLoaded) return;
+  const params = getParams();
+  const mS = FAA.analyseSliding(pointNormals, params);
+  const mT = FAA.analyseToppling(pointNormals, params);
+  const n  = pointPositions.length / 3;
+  const rows = ['x,y,z,sliding,toppling'];
+  for (let i = 0; i < n; i++) {
+    rows.push(
+      `${pointPositions[i*3].toFixed(4)},` +
+      `${pointPositions[i*3+1].toFixed(4)},` +
+      `${pointPositions[i*3+2].toFixed(4)},` +
+      `${mS[i]},${mT[i]}`
+    );
+  }
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'faa_results.csv';
+  a.click();
+}
+
+// ── Utilities ─────────────────────────────────────────────────────────────────
+function setStatus(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+function showProgress(on) {
+  document.getElementById('progressWrap').classList.toggle('show', on);
+  if (on) {
+    let w = 0;
+    const iv = setInterval(() => {
+      w = Math.min(w + 5, 90);
+      document.getElementById('progressBar').style.width = w + '%';
+      if (!on) { clearInterval(iv); document.getElementById('progressBar').style.width = '100%'; }
+    }, 60);
+  } else {
+    document.getElementById('progressBar').style.width = '100%';
+    setTimeout(() => {
+      document.getElementById('progressWrap').classList.remove('show');
+      document.getElementById('progressBar').style.width = '0%';
+    }, 300);
+  }
+}
+
+function capitalize(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
+</script>
+</body>
+</html>
