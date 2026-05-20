@@ -247,12 +247,22 @@ function handleFileLoad(file) {
 }
 
 // ── LAS/LAZ loader ────────────────────────────────────────────────────────────
-function loadLAS(buffer, name) {
+async function loadLAS(buffer, name) {
+  // Detect LAZ by the compression bit (format ID ≥ 128) in the header
+  const fmtByte = new DataView(buffer).getUint8(104);
+  const isLAZ   = fmtByte >= 128;
+
   let parsed;
   try {
-    parsed = LASLoader.read(buffer);
+    if (isLAZ) {
+      setStatus('Initialising LAZ decompressor (WASM)…');
+      parsed = await LASLoader.readLAZ(buffer);
+    } else {
+      parsed = LASLoader.read(buffer);
+    }
   } catch (err) {
-    setStatus('LAS error: ' + err.message);
+    setStatus((isLAZ ? 'LAZ' : 'LAS') + ' error: ' + err.message);
+    console.error(err);
     showProgress(false);
     return;
   }

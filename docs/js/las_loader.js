@@ -232,5 +232,84 @@ const LASLoader = (() => {
     return { points, colors, format, numPoints: numPts };
   }
 
-  return { read, estimateNormals };
+  // ── LAZ decompressor via laz-perf WASM ──────────────────────────────────────
+  // `createLazPerf` global is loaded from the CDN script tag in index.html.
+  // The module is initialised once and reused across calls.
+  let _lazPerfPromise = null;
+
+  function _getLazPerf() {
+    if (!_lazPerfPromise) {
+      if (typeof createLazPerf === 'undefined')
+        throw new Error(
+          'laz-perf WASM library not available. ' +
+          'Ensure the CDN script tag is present in index.html.'
+        );
+      _lazPerfPromise = createLazPerf();
+    }
+    return _lazPerfPromise;
+  }
+
+  /**
+   * Decompress a LAZ file using laz-perf WASM.
+   * Returns the same shape as read(): { points, colors, format, numPoints }.
+   */
+  async function readLAZ(buffer) {
+    const lp   = await _getLazPerf();
+    const view = new DataView(buffer);
+
+    const vMaj   = view.getUint8(24);
+    const vMin   = view.getUint8(25);
+    const fmtRaw = view.getUint8(104);
+    const format = fmtRaw & 0x7F;   // strip LAZ compression bit
+
+    let numPts = view.getUint32(107, true);
+    if (numPts === 0 && vMaj === 1 && vMin >= 4) {
+      const lo = view.getUint32(247, true);
+      const hi = view.getUint32(251, true);
+      if (hi > 0) throw new Error('Point cloud > 4 billion points — too large for browser.');
+      numPts = lo;
+    }
+    if (numPts === 0) throw new Error('LAZ file contains 0 points.');
+
+    const xScale = view.getFloat64(131, true), xOff = view.getFloat64(155, true);
+    const yScale = view.getFloat64(139, true), yOff = view.getFloat64(163, true);
+    const zScale = view.getFloat64(147, true), zOff = view.getFloat64(171, true);
+
+    const rgbOff = RGB_BYTE_OFFSET[format] !== undefined ? RGB_BYTE_OFFSET[format] : null;
+
+    // Copy entire file to WASM heap
+    const filePtr = lp._malloc(buffer.byteLength);
+    lp.HEAPU8.set(new Uint8Array(buffer), filePtr);
+
+    const laszip   = new lp.LASZip();
+    laszip.open(filePtr, buffer.byteLength);
+
+    const pointLen = laszip.getPointLength();
+    const destPtr  = lp._malloc(pointLen);
+    const heapView = new DataView(lp.HEAPU8.buffer);
+
+    const points = new Float64Array(numPts * 3);
+    const colors = rgbOff !== null ? new Float32Array(numPts * 3) : null;
+
+    for (let i = 0; i < numPts; i++) {
+      laszip.getPoint(destPtr);
+      points[i*3]     = heapView.getInt32(destPtr,     true) * xScale + xOff;
+      points[i*3 + 1] = heapView.getInt32(destPtr + 4, true) * yScale + yOff;
+      points[i*3 + 2] = heapView.getInt32(destPtr + 8, true) * zScale + zOff;
+
+      if (rgbOff !== null) {
+        colors[i*3]     = heapView.getUint16(destPtr + rgbOff,     true) / 65535;
+        colors[i*3 + 1] = heapView.getUint16(destPtr + rgbOff + 2, true) / 65535;
+        colors[i*3 + 2] = heapView.getUint16(destPtr + rgbOff + 4, true) / 65535;
+      }
+    }
+
+    laszip.delete();
+    lp._free(destPtr);
+    lp._free(filePtr);
+
+    return { points, colors, format, numPoints: numPts };
+  }
+
+  return { read, readLAZ, estimateNormals };
 })();
