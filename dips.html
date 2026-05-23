@@ -1199,7 +1199,8 @@ const FAA = (() => {
     // Build simple kd-style brute-force search (fast enough for ≤ 50k pts in browser)
     const knn = buildKNN(points, n, k);
 
-    const wedge_pts = [];
+    const wedge_pts   = [];
+    const wedge_lines = [];   // flat [nx,ny,nz, …] intersection line vectors
     const seen = new Set();
 
     for (let i = 0; i < n; i++) {
@@ -1219,12 +1220,12 @@ const FAA = (() => {
                     params.slope_dip, params.slope_dip_dir,
                     params.friction_angle, params.min_angle_diff);
         if (e) {
-          // Store midpoint between the two points
           wedge_pts.push([(p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2]);
+          wedge_lines.push(e[0], e[1], e[2]);
         }
       }
     }
-    return wedge_pts;
+    return { pts: wedge_pts, lines: new Float32Array(wedge_lines) };
   }
 
   /** Very simple KNN via distance sorting (fine for demo-sized datasets). */
@@ -1804,6 +1805,7 @@ let resultCounts   = { sliding: 0, toppling: 0, wedge: 0 };
 // updateStereonet always receives the latest result for each mode.
 let currentSlidingMask  = null;
 let currentTopplingMask = null;
+let currentWedgeLines   = null;   // Float32Array(N*3) of wedge intersection directions
 
 // Facet amalgamation cache: {normals, centroids, sizes, pointFacet} or null.
 // When amalgamation is on, analysis & the stereonet operate on facets, and the
@@ -2308,6 +2310,7 @@ function finaliseLoad(label) {
   clearResultClouds();
   currentSlidingMask  = null;
   currentTopplingMask = null;
+  currentWedgeLines   = null;
   facets = null;
   resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
   updateCounts();
@@ -2362,6 +2365,7 @@ function reapplyFrame() {
   facets = null;
   currentSlidingMask = null;
   currentTopplingMask = null;
+  currentWedgeLines   = null;
   clearResultClouds();
   resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
   updateCounts();
@@ -2460,13 +2464,14 @@ function runAnalysis(mode) {
       } else if (mode === 'wedge') {
         // Amalgamated facets are few, so analyse them all; raw points are
         // capped at 5k for browser KNN performance.
-        const limit   = Math.min(set.positions.length / 3, amalg ? 20000 : 5000);
-        const pts_sub = set.positions.slice(0, limit * 3);
-        const nrm_sub = set.normals.slice(0, limit * 3);
-        const wpts    = FAA.analyseWedge(pts_sub, nrm_sub, params);
-        const flat    = new Float32Array(wpts.flat());
-        wedgeCloud    = addOrReplaceCloud(wedgeCloud, flat, 0x22ccff, 0.12);
-        resultCounts.wedge = wpts.length;
+        const limit    = Math.min(set.positions.length / 3, amalg ? 20000 : 5000);
+        const pts_sub  = set.positions.slice(0, limit * 3);
+        const nrm_sub  = set.normals.slice(0, limit * 3);
+        const wresult  = FAA.analyseWedge(pts_sub, nrm_sub, params);
+        const flat     = new Float32Array(wresult.pts.flat());
+        wedgeCloud     = addOrReplaceCloud(wedgeCloud, flat, 0x22ccff, 0.12);
+        resultCounts.wedge = wresult.pts.length;
+        currentWedgeLines  = wresult.lines;
       }
 
       updateCounts();
@@ -2506,6 +2511,96 @@ function countOnes(mask) {
 // ── Stereonet ─────────────────────────────────────────────────────────────────
 let stereoCtx = null;
 
+/**
+ * Fill the kinematic failure envelope zones on the stereonet using pixel
+ * rasterization (inverse Wulff projection per pixel).  Called after the
+ * background fill so the zones sit below the data poles.
+ */
+function drawKinematicZones(cx, cy, R, params) {
+  const { slope_dip, slope_dip_dir, friction_angle,
+          lateral_sliding, lateral_toppling } = params;
+  if (!isFinite(slope_dip) || slope_dip <= friction_angle) return;
+
+  const W = stereoCtx.canvas.width, H = stereoCtx.canvas.height;
+  const imgData = stereoCtx.getImageData(0, 0, W, H);
+  const d = imgData.data;
+  const PI = Math.PI, D2R = PI / 180;
+
+  // Pre-compute slope pole vector (lower hemisphere, pointing down)
+  const sp_trend  = (slope_dip_dir + 180) % 360;
+  const sp_plunge = 90 - slope_dip;
+  const spt_r = sp_trend * D2R, spp_r = sp_plunge * D2R;
+  const spvx = Math.cos(spp_r) * Math.sin(spt_r);
+  const spvy = Math.cos(spp_r) * Math.cos(spt_r);
+  const spvz = -Math.sin(spp_r);
+
+  // Toppling boundary vector (plunge = 90 - slope_dip + friction, trending opposite to slope)
+  const uzp_r = (sp_plunge + friction_angle) * D2R;
+  const uzt_r = ((slope_dip_dir + 180) % 360) * D2R;
+  const uzvx = Math.cos(uzp_r) * Math.sin(uzt_r);
+  const uzvy = Math.cos(uzp_r) * Math.cos(uzt_r);
+  const uzvz = -Math.sin(uzp_r);
+
+  const maxFrPlunge = 90 - friction_angle;   // sliding: pole plunge ≤ this
+
+  for (let py = 0; py < H; py++) {
+    for (let px = 0; px < W; px++) {
+      const dx = (px - cx) / R;
+      const dy = (cy - py) / R;
+      const r2 = dx * dx + dy * dy;
+      if (r2 >= 1.0) continue;
+
+      // Inverse equal-angle (Wulff) projection
+      const r   = Math.sqrt(r2);
+      const plg = 90 - 2 * Math.atan(r) * 180 / PI;   // plunge in degrees
+      let   trd = Math.atan2(dx, dy) * 180 / PI;       // trend in degrees (N=0, E=90)
+      if (trd < 0) trd += 360;
+
+      // Lower-hemisphere normal for this stereonet point
+      const pp = plg * D2R, tt = trd * D2R;
+      const nx = Math.cos(pp) * Math.sin(tt);
+      const ny = Math.cos(pp) * Math.cos(tt);
+      const nz = -Math.sin(pp);   // already pointing down
+
+      const idx = (py * W + px) * 4;
+      let   alpha = 0, rz = 0, gz = 0, bz = 0;
+
+      // ── Sliding zone ──────────────────────────────────────────────────────
+      if (plg <= maxFrPlunge) {
+        const tDiff = 180 - Math.abs(Math.abs(trd - sp_trend) - 180);
+        if (tDiff <= lateral_sliding) {
+          // Daylight check: dip vector must not point toward the slope pole
+          const dp = (90 - plg) * D2R;
+          const dt = ((trd + 180) % 360) * D2R;
+          const dvx = Math.cos(dp) * Math.sin(dt);
+          const dvy = Math.cos(dp) * Math.cos(dt);
+          const dvz = -Math.sin(dp);
+          if (spvx * dvx + spvy * dvy + spvz * dvz <= 0) {
+            rz = 220; gz = 50; bz = 50; alpha = 0.40;
+          }
+        }
+      }
+
+      // ── Toppling zone ────────────────────────────────────────────────────
+      if (alpha === 0) {
+        const tDiff2 = 180 - Math.abs(Math.abs(trd - slope_dip_dir) - 180);
+        if (tDiff2 <= lateral_toppling) {
+          if (uzvx * nx + uzvy * ny + uzvz * nz < 0) {
+            rz = 50; gz = 190; bz = 70; alpha = 0.40;
+          }
+        }
+      }
+
+      if (alpha > 0) {
+        d[idx]     = Math.round(d[idx]     * (1 - alpha) + rz * alpha);
+        d[idx + 1] = Math.round(d[idx + 1] * (1 - alpha) + gz * alpha);
+        d[idx + 2] = Math.round(d[idx + 2] * (1 - alpha) + bz * alpha);
+      }
+    }
+  }
+  stereoCtx.putImageData(imgData, 0, 0);
+}
+
 function initStereonet() {
   const canvas = document.getElementById('stereoCanvas');
   stereoCtx = canvas.getContext('2d');
@@ -2528,43 +2623,53 @@ function updateStereonet(slidingMask, toppling_mask) {
   const W = stereoCtx.canvas.width, H = stereoCtx.canvas.height;
   const cx = W / 2, cy = H / 2;
   const R  = Math.min(W, H) * 0.42;
+  const dpr = window.devicePixelRatio;
+  const fs  = 11 * dpr;
 
+  // 1. Background fill
   stereoCtx.clearRect(0, 0, W, H);
   stereoCtx.fillStyle = '#0d0d1e';
   stereoCtx.fillRect(0, 0, W, H);
 
+  // 2. Kinematic zone envelopes (pixel-rasterised, drawn before poles)
+  drawKinematicZones(cx, cy, R, getParams());
+
+  // 3. Net circle + cardinal labels (re-drawn on top of zones)
   stereoCtx.beginPath();
   stereoCtx.arc(cx, cy, R, 0, Math.PI * 2);
   stereoCtx.strokeStyle = '#aaaacc';
-  stereoCtx.lineWidth   = 1.5 * window.devicePixelRatio;
+  stereoCtx.lineWidth   = 1.5 * dpr;
   stereoCtx.stroke();
 
-  const fs = 11 * window.devicePixelRatio;
+  stereoCtx.fillStyle    = '#aaaacc';
+  stereoCtx.font         = `${fs}px sans-serif`;
+  stereoCtx.textAlign    = 'center';
+  stereoCtx.textBaseline = 'middle';
+  stereoCtx.fillText('N', cx, cy - R - 14 * dpr);
+  stereoCtx.fillText('S', cx, cy + R + 14 * dpr);
+  stereoCtx.fillText('E', cx + R + 14 * dpr, cy);
+  stereoCtx.fillText('W', cx - R - 14 * dpr, cy);
+
+  // 4. Slope marker + footer (always shown)
+  drawSlopeMarker(cx, cy, R);
   stereoCtx.fillStyle = '#aaaacc';
   stereoCtx.font      = `${fs}px sans-serif`;
-  stereoCtx.textAlign = 'center';
-  stereoCtx.textBaseline = 'middle';
-  stereoCtx.fillText('N', cx, cy - R - 14*window.devicePixelRatio);
-  stereoCtx.fillText('S', cx, cy + R + 14*window.devicePixelRatio);
-  stereoCtx.fillText('E', cx + R + 14*window.devicePixelRatio, cy);
-  stereoCtx.fillText('W', cx - R - 14*window.devicePixelRatio, cy);
+  stereoCtx.fillText('Lower Hemisphere — Equal Angle', cx, 14 * dpr);
 
   if (!dataLoaded || !pointNormals) return;
 
-  // Source poles: amalgamated facets (one pole each, sized by member count)
-  // if amalgamation is on; otherwise every point normal.
+  // Source poles: amalgamated facets (sized by member count) or every point.
   const f      = ensureFacets();
   const srcN   = f ? f.normals : pointNormals;
   const sizes  = f ? f.sizes   : null;
   const n      = srcN.length / 3;
   const step   = f ? 1 : Math.max(1, Math.floor(n / 4000));
-  const dpr    = window.devicePixelRatio;
   const baseR  = (f ? 3.0 : 1.8) * dpr;
   const dotR   = (i) => sizes
     ? Math.max(2 * dpr, Math.min(7 * dpr, baseR * Math.sqrt(sizes[i] / 200)))
     : baseR;
 
-  // Pass 1: grey background poles (skip already-coloured ones)
+  // Pass 1: grey background poles
   stereoCtx.fillStyle = f ? 'rgba(170,170,204,0.55)' : 'rgba(170,170,204,0.12)';
   for (let i = 0; i < n; i += step) {
     if (slidingMask?.[i] || toppling_mask?.[i]) continue;
@@ -2576,7 +2681,7 @@ function updateStereonet(slidingMask, toppling_mask) {
 
   // Pass 2: sliding hits (red)
   if (slidingMask) {
-    stereoCtx.fillStyle = f ? 'rgba(255,51,51,0.9)' : 'rgba(255,51,51,0.7)';
+    stereoCtx.fillStyle = f ? 'rgba(255,80,80,1.0)' : 'rgba(255,51,51,0.7)';
     for (let i = 0; i < n; i++) {
       if (!slidingMask[i]) continue;
       const [sx, sy] = FAA.normalToStereo(srcN[i*3], srcN[i*3+1], srcN[i*3+2]);
@@ -2588,7 +2693,7 @@ function updateStereonet(slidingMask, toppling_mask) {
 
   // Pass 3: toppling hits (green)
   if (toppling_mask) {
-    stereoCtx.fillStyle = f ? 'rgba(51,204,85,0.9)' : 'rgba(51,204,85,0.7)';
+    stereoCtx.fillStyle = f ? 'rgba(80,220,100,1.0)' : 'rgba(51,204,85,0.7)';
     for (let i = 0; i < n; i++) {
       if (!toppling_mask[i]) continue;
       const [sx, sy] = FAA.normalToStereo(srcN[i*3], srcN[i*3+1], srcN[i*3+2]);
@@ -2598,11 +2703,18 @@ function updateStereonet(slidingMask, toppling_mask) {
     }
   }
 
-  drawSlopeMarker(cx, cy, R);
-
-  stereoCtx.fillStyle = '#aaaacc';
-  stereoCtx.font      = `${fs}px sans-serif`;
-  stereoCtx.fillText('Lower Hemisphere — Equal Angle', cx, 14 * window.devicePixelRatio);
+  // Pass 4: wedge intersection lines (cyan dots on stereonet)
+  if (currentWedgeLines && currentWedgeLines.length > 0) {
+    stereoCtx.fillStyle = 'rgba(34,204,255,0.85)';
+    const nw = currentWedgeLines.length / 3;
+    for (let i = 0; i < nw; i++) {
+      const [sx, sy] = FAA.normalToStereo(
+        currentWedgeLines[i*3], currentWedgeLines[i*3+1], currentWedgeLines[i*3+2]);
+      stereoCtx.beginPath();
+      stereoCtx.arc(cx + sx * R, cy - sy * R, 2.5 * dpr, 0, Math.PI * 2);
+      stereoCtx.fill();
+    }
+  }
 }
 
 function drawSlopeMarker(cx, cy, R) {
@@ -2669,6 +2781,7 @@ function bindUI() {
     facets = null;
     currentSlidingMask = null;
     currentTopplingMask = null;
+    currentWedgeLines   = null;
     clearResultClouds();
     resultCounts = { sliding: 0, toppling: 0, wedge: 0 };
     updateCounts();
