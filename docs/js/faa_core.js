@@ -216,7 +216,8 @@ const FAA = (() => {
     // Build simple kd-style brute-force search (fast enough for ≤ 50k pts in browser)
     const knn = buildKNN(points, n, k);
 
-    const wedge_pts = [];
+    const wedge_pts   = [];
+    const wedge_lines = [];   // flat [nx,ny,nz, …] intersection line vectors
     const seen = new Set();
 
     for (let i = 0; i < n; i++) {
@@ -236,12 +237,12 @@ const FAA = (() => {
                     params.slope_dip, params.slope_dip_dir,
                     params.friction_angle, params.min_angle_diff);
         if (e) {
-          // Store midpoint between the two points
           wedge_pts.push([(p1[0]+p2[0])/2, (p1[1]+p2[1])/2, (p1[2]+p2[2])/2]);
+          wedge_lines.push(e[0], e[1], e[2]);
         }
       }
     }
-    return wedge_pts;
+    return { pts: wedge_pts, lines: new Float32Array(wedge_lines) };
   }
 
   /** Very simple KNN via distance sorting (fine for demo-sized datasets). */

@@ -44,6 +44,19 @@ generate_sample_xyzn.py
     Regenerates sample_slope.xyzn. Pure Python, NO libraries required.
     Run:  python generate_sample_xyzn.py
 
+sample_slope.ply
+    REALISTIC coloured sample (~8,660 points) made to look like a real
+    laser/photogrammetry scan of a vegetated cliff: a curved grey-brown rock
+    face, scattered GREEN VEGETATION clumps, surface roughness, and the same
+    three joint sets embedded as fresher-rock outcrops. The PLY keeps both the
+    normals and the per-point colours, so the 3-D view shows natural rock and
+    green vegetation. Turn ON "Amalgamate into facets" before Run All — the
+    vegetation is rejected as small noisy regions and only the joints flag.
+
+generate_sample_ply.py
+    Regenerates sample_slope.ply. Pure Python, NO libraries required.
+    Run:  python generate_sample_ply.py
+
 figures/
     Ready-to-use result images for your proposal, with captions:
       fig1_stereonet.png  - lower-hemisphere stereonet of the analysis
